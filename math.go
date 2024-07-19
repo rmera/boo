@@ -16,6 +16,8 @@ import (
 
 //utils
 
+// takes a sub-matrix of m, consisting in its rows with indexes present in rowIndexes and the
+// columns present in colIndexes, inthe order in which they appear in the 2 int slices.
 func SampleMatrix(m [][]float64, rowIndexes, colIndexes []int) [][]float64 {
 	ret := make([][]float64, 0, len(rowIndexes))
 	for _, v := range rowIndexes {
@@ -31,11 +33,7 @@ func SampleSlice(s []float64, indexes []int) []float64 {
 	if len(indexes) > len(s) {
 		panic(fmt.Sprintf("SampleSlice: can't sample %d values from slice of len %d: %v %v", len(indexes), len(s), indexes, s))
 	}
-	//	} else if len(indexes) == len(s) {
-	//		return s
-	//	}
 	ret := make([]float64, 0, len(indexes))
-
 	for _, v := range indexes {
 		if v >= len(s) {
 			panic(fmt.Sprintf("SampleSlice: can't sample value %d from slice of len %d: %v", v, len(s), s))
@@ -43,7 +41,6 @@ func SampleSlice(s []float64, indexes []int) []float64 {
 		ret = append(ret, s[v])
 	}
 	return ret
-
 }
 
 type idSorter struct {
@@ -72,6 +69,7 @@ func ArgSort(a []float64) ([]int, []float64) {
 	return r.i, r.a
 }
 
+// Transposes the matrix represented by the [][]m slice of slices.
 func TransposeFloats(m [][]float64) [][]float64 {
 	ret := make([][]float64, 0, len(m[0]))
 	for i := range m[0] {
@@ -84,6 +82,7 @@ func TransposeFloats(m [][]float64) [][]float64 {
 	return ret
 }
 
+// Produces a printable version of m
 func PrintDenseMatrix(m *mat.Dense) string {
 	r, _ := m.Dims()
 	ret := make([]string, 0, r)
@@ -95,6 +94,8 @@ func PrintDenseMatrix(m *mat.Dense) string {
 	return strings.Join(ret, "\n")
 }
 
+// puts in probs the softmax output for the inputs in p.
+// allocates a new matrix if probs is nil.
 func SoftMax(p, probs []float64) []float64 {
 	if probs == nil {
 		probs = make([]float64, len(p))
@@ -106,10 +107,11 @@ func SoftMax(p, probs []float64) []float64 {
 	for i := range p {
 		probs[i] /= den
 	}
-	//	fmt.Println("p softmaxed probs", p, probs) ////////////////////////////////////////
 	return probs
 }
 
+// puts in D the softmax output for the inputs in O.
+// allocates a new matrix if D is nil.
 func SoftMaxDense(O, D *mat.Dense) *mat.Dense {
 	r, c := O.Dims()
 	if D == nil {
@@ -118,15 +120,13 @@ func SoftMaxDense(O, D *mat.Dense) *mat.Dense {
 	for i := 0; i < r; i++ {
 		o := O.RawRowView(i)
 		d := D.RawRowView(i)
-		//	fmt.Println("row before", D.RowView(i)) /////////////////////////
 		p := SoftMax(o, d) //this should set D to the probabilities.
 		D.SetRow(i, p)
-		//		fmt.Println("row q", D.RowView(i)) /////////////////////////////////////////
 	}
-	//	fmt.Println("hola from softmaxdense", PrintDenseMatrix(O), PrintDenseMatrix(D)) ///////////////
 	return D
 }
 
+// Interface for loss functions used in the package.
 type LossFunc interface {
 	Loss(*mat.Dense, *mat.Dense, *mat.Dense) float64
 	Name() string
@@ -135,6 +135,7 @@ type LossFunc interface {
 	Hessian(*mat.Dense, *mat.Dense) *mat.Dense
 }
 
+// Square error
 type SQErrLoss struct {
 }
 
@@ -165,13 +166,7 @@ func (m *SQErrLoss) NegGradients(yohelabels, pred, results *mat.Dense) *mat.Dens
 		r, c := yohelabels.Dims()
 		results = mat.NewDense(r, c, nil)
 	}
-	//	rr := results.RawMatrix().Data //////////
-	//	for i := range rr {            /////////
-	//		rr[i] = 0.0 ////////////////
-	//	} ///////////////////////////////////
-	//	fmt.Println("before", PrintDenseMatrix(yohelabels), PrintDenseMatrix(pred), PrintDenseMatrix(results))
 	results.Sub(yohelabels, pred)
-	//	fmt.Println("after", PrintDenseMatrix(results))
 	return results
 }
 
@@ -196,6 +191,7 @@ func (m *SQErrLoss) Hessian(probabilities, hessian *mat.Dense) *mat.Dense {
 	return hessian
 }
 
+// the error used in regular gradient boosting
 type MSELoss struct {
 }
 
@@ -272,6 +268,8 @@ func DenseCol(D *mat.Dense, col int) *mat.Dense {
 	return mat.NewDense(1, len(newcol), newcol)
 }
 
+// adds the i-th number in s to the ith row to the col column of
+// D. s must have as many elements as D has rows.
 func AddToCol(D *mat.Dense, s []float64, col int) {
 	raw := D.RawMatrix()
 	r, c := D.Dims()
@@ -291,6 +289,7 @@ func AddToCol(D *mat.Dense, s []float64, col int) {
 	return
 }
 
+// Sets all entries of m to 1.0
 func ToOnes(m *mat.Dense) {
 	rm := m.RawMatrix().Data
 	for i := range rm {
