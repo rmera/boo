@@ -1,7 +1,9 @@
 # Gradient-boosting learning for multi-class classification.
 
-This is a simple library that implements simple versions of gradient boosting
+chemLearn is a simple library that implements simple versions of gradient boosting
 and xgboost for classification, in pure Go. 
+
+The goal is for chemLearn to become a part of goChem when its mature enough, hence the name. Still, there is nothing specific about Chemistry in the library.
 
 I have tried to keep things simple, including the data format.
 
@@ -10,8 +12,6 @@ add it to the regular gradient boosting CV grid soon. That's as far as I'll got 
 
 Some facilities, such as cross-validation and file-reading (a _very_ naive/incomplete
 reader for the libSVM format) are provided.
-
-The objective is for this library to become a part of goChem when its mature enough. Still, there is nothing specific about Chemistry in this package.
 
 Both the regular gradient-boosting as well as the xgboost implementations are close ports/translations from the following Python implementations:
 
@@ -22,6 +22,18 @@ Both by [Matt Bowers](https://github.com/mcb00)
 
 Disclaimer: The whole thing is not really "production quality" as of now. More debugging, a lot more test and cleanup are needed.
 
+
+# Using chemLearn
+
+Hopefully we'll be adding instructions, for now, take a look at the test file (learn_test.go) to see examples.
+
+ ## On machine learning
+
+If you want to be an informed user of Statistical/Machine learning, these are my big 3:
+
+* [StatQuest with Josh Starmer](https://www.youtube.com/@statquest) Binge-watch worthy.
+* [The Random Realizations blog](https://randomrealizations.com) Where most of the knowledge in this library comes from. Do read it.
+* [An Introduction to Statistical Learning](https://www.statlearning.com/) They don't call it 'The Bible' for nothing.
 
 (c) 2024 Raul Mera A.
 
