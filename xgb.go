@@ -1,4 +1,4 @@
-package xgb
+package learn
 
 // Copyright (c) 2024 Raul Mera A.
 
@@ -7,14 +7,14 @@ import (
 	"math"
 	"math/rand/v2"
 
-	"github.com/rmera/learn"
+	"github.com/rmera/chemlearn/utils"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/mat"
 )
 
 type MultiClass struct {
-	b             [][]*learn.Tree
-	learningRate  float64
+	b             [][]*Tree
+	utilsingRate  float64
 	classLabels   []int
 	probTransform func(*mat.Dense, *mat.Dense) *mat.Dense
 	tmp           []float64
@@ -23,6 +23,7 @@ type MultiClass struct {
 }
 
 type Options struct {
+	XGB            bool
 	Rounds         int
 	MaxDepth       int
 	LearningRate   float64
@@ -34,11 +35,12 @@ type Options struct {
 	MinSample      int //the minimum samples in each tree
 	TreeMethod     string
 	Verbose        bool
-	Loss           learn.LossFunc
+	Loss           utils.LossFunc
 }
 
-func DefaultOptions() *Options {
+func DefaultXOptions() *Options {
 	O := new(Options)
+	O.XGB = true
 	O.Rounds = 20
 	O.SubSample = 0.8
 	O.RegLambda = 1.5
@@ -47,62 +49,100 @@ func DefaultOptions() *Options {
 	O.LearningRate = 0.3
 	O.BaseScore = 0.5
 	O.TreeMethod = "exact"
-	O.Loss = &learn.SQErrLoss{}
+	O.Loss = &utils.SQErrLoss{}
 	O.Verbose = false //just for clarity
 	O.MinSample = 5
 	return O
 }
 
-func (O *Options) String() string {
-	return fmt.Sprintf("%d r/%d md/%.3f lr/%.3f ss/%.3f bs/%.3f gam/%.3f lam/%.3f mcw/", O.Rounds, O.MaxDepth, O.LearningRate, O.SubSample, O.BaseScore, O.Gamma, O.RegLambda, O.MinChildWeight)
+func DefaultGOptions() *Options {
+	O := new(Options)
+	O.XGB = false
+	O.Rounds = 10
+	O.MaxDepth = 4
+	O.LearningRate = 0.1
+	O.MinChildWeight = 3
+	O.Loss = &utils.MSELoss{}
+
+	return O
 }
 
-func NewMultiClass(D *learn.DataBunch, opts ...*Options) *MultiClass {
+func (O *Options) String() string {
+	if O.XGB {
+		return fmt.Sprintf("xgboost %d r/%d md/%.3f lr/%.3f ss/%.3f bs/%.3f gam/%.3f lam/%.3f mcw/", O.Rounds, O.MaxDepth, O.LearningRate, O.SubSample, O.BaseScore, O.Gamma, O.RegLambda, O.MinChildWeight)
+	} else {
+		return fmt.Sprintf("gboost %d r/%d md/%.3f lr", O.Rounds, O.MaxDepth, O.LearningRate)
+
+	}
+
+}
+
+func NewMultiClass(D *utils.DataBunch, xgboost bool, opts ...*Options) *MultiClass {
 	var O *Options
 	if len(opts) > 0 && opts[0] != nil {
 		O = opts[0]
 	} else {
-		O = DefaultOptions()
+		if xgboost {
+			O = DefaultXOptions()
+		} else {
+			O = DefaultGOptions()
+		}
 	}
+	O.XGB = xgboost
 	ohelabels, differentlabels := D.OHELabels()
 	nlabels := len(differentlabels)
-	boosters := make([][]*learn.Tree, 0, nlabels)
+	boosters := make([][]*Tree, 0, nlabels)
 	r, c := ohelabels.Dims()
 	rawPred := mat.NewDense(r, c, nil)
-	learn.ToOnes(rawPred)
+	utils.ToOnes(rawPred)
 	rawPred.Scale(O.BaseScore, rawPred)
-	probs := learn.SoftMaxDense(rawPred, nil)
+	probs := utils.SoftMaxDense(rawPred, nil)
 	grads := mat.NewDense(1, r, nil)
 	hess := mat.NewDense(1, r, nil)
 	tmpPreds := make([]float64, r)
 	for round := 0; round < O.Rounds; round++ {
 		var sampleIndexes []int
-		if O.SubSample < 1 {
+		if O.SubSample < 1 && xgboost {
 			sampleIndexes = SubSample(len(D.Data), O.SubSample)
 		}
 		if len(sampleIndexes) < O.MinSample {
 			continue
 		}
-		classes := make([]*learn.Tree, 0, 1)
+		classes := make([]*Tree, 0, 1)
 		for k := 0; k < nlabels; k++ {
-			kthlabelvector := learn.DenseCol(ohelabels, k)
-			kthrawpred := learn.DenseCol(rawPred, k)
-			grads = O.Loss.Gradients(kthlabelvector, kthrawpred, nil) //here I could/should reuse the grads slice
-			hess = O.Loss.Hessian(kthrawpred, nil)                    //same here, I can pass them instead of nil
-			tOpts := learn.DefaultXTreeOptions()
-			tOpts.MinChildWeight = O.MinChildWeight
-			tOpts.RegLambda = O.RegLambda
-			tOpts.Gamma = O.Gamma
-			tOpts.MaxDepth = O.MaxDepth
-			tOpts.Indexes = sampleIndexes
-			tOpts.Gradients = grads.RawRowView(0)
-			tOpts.Hessian = hess.RawRowView(0)
-			tOpts.Y = kthlabelvector.RawRowView(0)
-			tree := learn.NewTree(D.Data, tOpts)
+			var tOpts *TreeOptions
+			var tree *Tree
+			kthlabelvector := utils.DenseCol(ohelabels, k)
+			kthrawpred := utils.DenseCol(rawPred, k)
+			hess = O.Loss.Hessian(kthrawpred, nil) //same here, I can pass them instead of nil
+			kthprobs := utils.DenseCol(probs, k)
+			if O.XGB {
+				tOpts = DefaultXTreeOptions()
+				tOpts.MinChildWeight = O.MinChildWeight
+				tOpts.MaxDepth = O.MaxDepth
+				grads = O.Loss.Gradients(kthlabelvector, kthprobs, grads) //here I could/should reuse the grads slice
+				tOpts.RegLambda = O.RegLambda
+				tOpts.Gamma = O.Gamma
+				tOpts.Indexes = sampleIndexes
+				tOpts.Gradients = grads.RawRowView(0)
+				tOpts.Hessian = hess.RawRowView(0)
+				tOpts.Y = kthlabelvector.RawRowView(0)
+				tree = NewTree(D.Data, tOpts)
+			} else {
+				tOpts = DefaultGTreeOptions()
+				tOpts.MinChildWeight = O.MinChildWeight
+				tOpts.MaxDepth = O.MaxDepth
+				grads = O.Loss.NegGradients(kthlabelvector, kthprobs, grads)
+				tOpts.Y = grads.RawRowView(0)
+				tOpts.Gradients = nil
+				tOpts.Hessian = nil
+				tree = NewTree(D.Data, tOpts)
+				updateLeaves(tree, grads, hess)
+			}
 			tmpPreds = tree.Predict(D.Data, tmpPreds)
 			floats.Scale(O.LearningRate, tmpPreds)
-			learn.AddToCol(rawPred, tmpPreds, k)
-			probs = learn.SoftMaxDense(rawPred, probs)
+			utils.AddToCol(rawPred, tmpPreds, k)
+			probs = utils.SoftMaxDense(rawPred, probs)
 			if O.Verbose {
 				fmt.Printf("round: %d, class: %d train loss = %.3f", round, k, O.Loss.Loss(kthlabelvector, mat.NewDense(0, len(tmpPreds), tmpPreds), nil))
 			}
@@ -110,7 +150,7 @@ func NewMultiClass(D *learn.DataBunch, opts ...*Options) *MultiClass {
 		}
 		boosters = append(boosters, classes)
 	}
-	return &MultiClass{b: boosters, learningRate: O.LearningRate, probTransform: learn.SoftMaxDense, classLabels: differentlabels, baseScore: O.BaseScore}
+	return &MultiClass{b: boosters, utilsingRate: O.LearningRate, probTransform: utils.SoftMaxDense, classLabels: differentlabels, baseScore: O.BaseScore}
 
 }
 
@@ -155,7 +195,7 @@ func SubSample(totdata int, subsample float64) []int {
 	return ret
 }
 
-func (M *MultiClass) Accuracy(D *learn.DataBunch, classes ...int) float64 {
+func (M *MultiClass) Accuracy(D *utils.DataBunch, classes ...int) float64 {
 	right := 0
 	instances := D.Data
 	actualclasses := D.Labels
@@ -194,7 +234,7 @@ func (M *MultiClass) PredictSingle(instance []float64, predictions ...[]float64)
 	}
 	for _, ensemble := range M.b {
 		for class, tree := range ensemble {
-			tmp[class] += tree.PredictSingle(instance) * M.learningRate
+			tmp[class] += tree.PredictSingle(instance) * M.utilsingRate
 		}
 	}
 	O := mat.NewDense(1, len(tmp), tmp)
@@ -202,4 +242,35 @@ func (M *MultiClass) PredictSingle(instance []float64, predictions ...[]float64)
 	D = M.probTransform(O, D)
 	preds = D.RawMatrix().Data
 	return preds //SHOULD contain the numbers now.
+}
+
+func updateLeaves(tree *Tree, gradient, hessian *mat.Dense) {
+	fn := func(leaf *Tree) {
+		if leaf.Samples == nil {
+			panic("Samples in one leaf are nil!")
+		}
+		var sumhess, sumgrad float64
+		for _, w := range leaf.Samples {
+			sumhess += hessian.At(0, w)
+			sumgrad += gradient.At(0, w)
+		}
+		nval := sumgrad / sumhess
+		leaf.Value = nval
+	}
+	applyToLeafs(tree, fn)
+}
+
+func applyToLeafs(tree *Tree, fn func(*Tree)) {
+
+	if tree.Left != nil {
+		applyToLeafs(tree.Left, fn)
+	}
+
+	if tree.Right != nil {
+		applyToLeafs(tree.Right, fn)
+	}
+	if tree.Leaf() {
+		fn(tree)
+		return
+	}
 }
