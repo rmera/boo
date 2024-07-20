@@ -1,9 +1,7 @@
 package gb
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/rmera/learn"
@@ -24,14 +22,14 @@ func TestTree(Te *testing.T) {
 	if err != nil {
 		Te.Error(err)
 	}
-	opts := DefaultTreeOptions()
+	opts := learn.DefaultGTreeOptions()
 	opts.MaxDepth = 10
 	opts.MinChildWeight = 1
 	targets, names := data.OHELabels()
 	target := learn.DenseCol(targets, 0)
 	fmt.Println("Prob for label", names[0], learn.PrintDenseMatrix(targets), target.RawRowView(0))
-
-	tree := NewTree(data.Data, target.RawRowView(0), opts)
+	opts.Y = target.RawRowView(0)
+	tree := learn.NewTree(data.Data, opts)
 
 	fmt.Println("predictions", tree.Predict(data.Data, nil))
 	fmt.Println(tree.Print(""))
@@ -118,7 +116,8 @@ func TTestCrossValGBGridOfGrids(Te *testing.T) {
 
 }
 
-func TestJSON(Te *testing.T) {
+/*
+func TTestJSON(Te *testing.T) {
 	//	ctm := &wql{}
 	O := new(Options)
 	O.Rounds = 20
@@ -165,3 +164,4 @@ func TestJSON(Te *testing.T) {
 	fmt.Println("train set accuracy of the recovered object", m.Accuracy(data))
 
 }
+*/

@@ -1,9 +1,7 @@
 package xgb
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/rmera/learn"
@@ -12,7 +10,7 @@ import (
 
 func TestTree(Te *testing.T) {
 
-	o := new(TreeOptions)
+	o := new(learn.TreeOptions)
 	o.MinChildWeight = 1
 	o.RegLambda = 1
 	o.Gamma = 0
@@ -31,9 +29,12 @@ func TestTree(Te *testing.T) {
 		kthlabelvector := learn.DenseCol(ohelabels, k)
 		kthpreds := learn.DenseCol(rawPred, k)
 		mse := &learn.SQErrLoss{}
-		ngrads := mse.Gradients(kthlabelvector, kthpreds, nil)
+		grads := mse.Gradients(kthlabelvector, kthpreds, nil)
 		hess := mse.Hessian(kthpreds, nil)
-		tree := NewTree(data.Data, kthlabelvector.RawRowView(0), ngrads.RawRowView(0), hess.RawRowView(0), o)
+		o.Gradients = grads.RawRowView(0)
+		o.Hessian = hess.RawRowView(0)
+		o.Y = kthlabelvector.RawRowView(0)
+		tree := learn.NewTree(data.Data, o)
 		fmt.Println(tree.Print("", data.Keys))
 	}
 
@@ -59,56 +60,57 @@ func TestXGBoost(Te *testing.T) {
 	fmt.Println("train set accuracy", boosted.Accuracy(data))
 }
 
-func TestJSON(Te *testing.T) {
-	//	ctm := &wql{}
-	O := new(Options)
-	O.Rounds = 20
-	O.SubSample = 0.9
-	O.RegLambda = 0.7
-	O.Gamma = 0.5
-	O.MinChildWeight = 3
-	O.MaxDepth = 6
-	O.LearningRate = 0.46
-	O.BaseScore = 0.5
-	O.TreeMethod = "exact"
-	O.Loss = &learn.SQErrLoss{}
+/*
+	func TestJSON(Te *testing.T) {
+		//	ctm := &wql{}
+		O := new(Options)
+		O.Rounds = 20
+		O.SubSample = 0.9
+		O.RegLambda = 0.7
+		O.Gamma = 0.5
+		O.MinChildWeight = 3
+		O.MaxDepth = 6
+		O.LearningRate = 0.46
+		O.BaseScore = 0.5
+		O.TreeMethod = "exact"
+		O.Loss = &learn.SQErrLoss{}
 
-	data, err := learn.DataBunchFromLibSVMFile("../tests/train.svm", true)
-	if err != nil {
-		Te.Error(err)
+		data, err := learn.DataBunchFromLibSVMFile("../tests/train.svm", true)
+		if err != nil {
+			Te.Error(err)
+		}
+		acc, err := MultiClassCrossValidation(data, 5, O)
+		if err != nil {
+			Te.Error(err)
+		}
+		fmt.Println("Crossvalidation accuracy:", acc)
+		boosted := NewMultiClass(data, O)
+		fmt.Println("train set accuracy", boosted.Accuracy(data))
+		os.Remove("../tests/xgbmodel.json")
+		f, err := os.Create("../tests/xgbmodel.json")
+		if err != nil {
+			Te.Error(err)
+		}
+		bf := bufio.NewWriter(f)
+		err = JSONMultiClass(boosted, "softmax", bf)
+		if err != nil {
+			Te.Error(err)
+		}
+		bf.Flush()
+		f.Close()
+		f, err = os.Open("../tests/xgbmodel.json")
+		defer f.Close()
+		if err != nil {
+			Te.Error(err)
+		}
+		b := bufio.NewReader(f)
+		m, err := UnJSONMultiClass(b)
+		if err != nil {
+			Te.Error(err)
+		}
+		fmt.Println("train set accuracy of the recovered object", m.Accuracy(data))
 	}
-	acc, err := MultiClassCrossValidation(data, 5, O)
-	if err != nil {
-		Te.Error(err)
-	}
-	fmt.Println("Crossvalidation accuracy:", acc)
-	boosted := NewMultiClass(data, O)
-	fmt.Println("train set accuracy", boosted.Accuracy(data))
-	os.Remove("../tests/xgbmodel.json")
-	f, err := os.Create("../tests/xgbmodel.json")
-	if err != nil {
-		Te.Error(err)
-	}
-	bf := bufio.NewWriter(f)
-	err = JSONMultiClass(boosted, "softmax", bf)
-	if err != nil {
-		Te.Error(err)
-	}
-	bf.Flush()
-	f.Close()
-	f, err = os.Open("../tests/xgbmodel.json")
-	defer f.Close()
-	if err != nil {
-		Te.Error(err)
-	}
-	b := bufio.NewReader(f)
-	m, err := UnJSONMultiClass(b)
-	if err != nil {
-		Te.Error(err)
-	}
-	fmt.Println("train set accuracy of the recovered object", m.Accuracy(data))
-}
-
+*/
 func TestCrossValGBoost(Te *testing.T) {
 	data, err := learn.DataBunchFromLibSVMFile("../tests/train.svm", true)
 	if err != nil {

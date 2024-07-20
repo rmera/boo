@@ -13,7 +13,7 @@ import (
 )
 
 type MultiClass struct {
-	b             [][]*Tree
+	b             [][]*learn.Tree
 	learningRate  float64
 	classLabels   []int
 	probTransform func(*mat.Dense, *mat.Dense) *mat.Dense
@@ -66,7 +66,7 @@ func NewMultiClass(D *learn.DataBunch, opts ...*Options) *MultiClass {
 	}
 	ohelabels, differentlabels := D.OHELabels()
 	nlabels := len(differentlabels)
-	boosters := make([][]*Tree, 0, nlabels)
+	boosters := make([][]*learn.Tree, 0, nlabels)
 	r, c := ohelabels.Dims()
 	rawPred := mat.NewDense(r, c, nil)
 	learn.ToOnes(rawPred)
@@ -83,19 +83,22 @@ func NewMultiClass(D *learn.DataBunch, opts ...*Options) *MultiClass {
 		if len(sampleIndexes) < O.MinSample {
 			continue
 		}
-		classes := make([]*Tree, 0, 1)
+		classes := make([]*learn.Tree, 0, 1)
 		for k := 0; k < nlabels; k++ {
 			kthlabelvector := learn.DenseCol(ohelabels, k)
 			kthrawpred := learn.DenseCol(rawPred, k)
 			grads = O.Loss.Gradients(kthlabelvector, kthrawpred, nil) //here I could/should reuse the grads slice
 			hess = O.Loss.Hessian(kthrawpred, nil)                    //same here, I can pass them instead of nil
-			tOpts := DefaultTreeOptions()
+			tOpts := learn.DefaultXTreeOptions()
 			tOpts.MinChildWeight = O.MinChildWeight
 			tOpts.RegLambda = O.RegLambda
 			tOpts.Gamma = O.Gamma
 			tOpts.MaxDepth = O.MaxDepth
 			tOpts.Indexes = sampleIndexes
-			tree := NewTree(D.Data, kthlabelvector.RawRowView(0), grads.RawRowView(0), hess.RawRowView(0), tOpts)
+			tOpts.Gradients = grads.RawRowView(0)
+			tOpts.Hessian = hess.RawRowView(0)
+			tOpts.Y = kthlabelvector.RawRowView(0)
+			tree := learn.NewTree(D.Data, tOpts)
 			tmpPreds = tree.Predict(D.Data, tmpPreds)
 			floats.Scale(O.LearningRate, tmpPreds)
 			learn.AddToCol(rawPred, tmpPreds, k)
@@ -122,7 +125,6 @@ func LogOddsFromProbs(m *mat.Dense) *mat.Dense {
 		}
 	}
 	return ret
-
 }
 
 func ClassesFromProbs(p *mat.Dense) *mat.Dense {

@@ -11,7 +11,7 @@ import (
 )
 
 type MultiClass struct {
-	b             [][]*Tree
+	b             [][]*learn.Tree
 	learningRate  float64
 	maxDepth      int
 	classLabels   []int
@@ -99,7 +99,7 @@ func NewMultiClass(D *learn.DataBunch, opts ...*Options) *MultiClass {
 	}
 	ohelabels, differentlabels := D.OHELabels()
 	nlabels := len(differentlabels)
-	boosters := make([][]*Tree, 0, nlabels)
+	boosters := make([][]*learn.Tree, 0, nlabels)
 	r, c := ohelabels.Dims()
 	rawPred := mat.NewDense(r, c, nil)
 	probs := learn.SoftMaxDense(rawPred, nil)
@@ -107,16 +107,17 @@ func NewMultiClass(D *learn.DataBunch, opts ...*Options) *MultiClass {
 	hess := mat.NewDense(1, r, nil)
 	tmpPreds := make([]float64, r) //not completely sure about this dimension
 	for round := 0; round < O.Rounds; round++ {
-		classes := make([]*Tree, 0, 1)
+		classes := make([]*learn.Tree, 0, 1)
 		for k := 0; k < nlabels; k++ {
 			//	fmt.Println("round, class", round, k)
 			kthlabelvector := learn.DenseCol(ohelabels, k)
 			kthprobs := learn.DenseCol(probs, k)
 			ngrads = O.Loss.NegGradients(kthlabelvector, kthprobs, ngrads)
 			hess = O.Loss.Hessian(kthprobs, hess)
-			tO := DefaultTreeOptions()
-			tO.MaxDepth = O.MaxDepth
-			tree := NewTree(D.Data, ngrads.RawRowView(0))
+			o := learn.DefaultGTreeOptions()
+			o.MaxDepth = O.MaxDepth
+			o.Y = ngrads.RawRowView(0)
+			tree := learn.NewTree(D.Data, o)
 			updateLeaves(tree, ngrads, hess)
 			tmpPreds = tree.Predict(D.Data, tmpPreds)
 			floats.Scale(O.LearningRate, tmpPreds)
@@ -130,23 +131,23 @@ func NewMultiClass(D *learn.DataBunch, opts ...*Options) *MultiClass {
 
 }
 
-func updateLeaves(tree *Tree, gradient, hessian *mat.Dense) {
-	fn := func(leaf *Tree) {
-		if leaf.samples == nil {
+func updateLeaves(tree *learn.Tree, gradient, hessian *mat.Dense) {
+	fn := func(leaf *learn.Tree) {
+		if leaf.Samples == nil {
 			panic("Samples in one leaf are nil!")
 		}
 		var sumhess, sumgrad float64
-		for _, w := range leaf.samples {
+		for _, w := range leaf.Samples {
 			sumhess += hessian.At(0, w)
 			sumgrad += gradient.At(0, w)
 		}
 		nval := sumgrad / sumhess
-		leaf.value = nval
+		leaf.Value = nval
 	}
 	applyToLeafs(tree, fn)
 }
 
-func applyToLeafs(tree *Tree, fn func(*Tree)) {
+func applyToLeafs(tree *learn.Tree, fn func(*learn.Tree)) {
 
 	if tree.Left != nil {
 		applyToLeafs(tree.Left, fn)
