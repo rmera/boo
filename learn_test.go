@@ -325,3 +325,38 @@ func TTestConcCrossValGGBoostGrid(Te *testing.T) {
 	fmt.Printf("Test accuracy: %.3f\n", acc)
 
 }
+
+func TestFeatures(Te *testing.T) {
+	O := DefaultXOptions()
+	data, err := utils.DataBunchFromLibSVMFile("tests/train.svm", true)
+	if err != nil {
+		Te.Error(err)
+	}
+	acc, err := MultiClassCrossValidation(data, 5, true, &CVOptions{O: O, Conc: false})
+	if err != nil {
+		Te.Error(err)
+	}
+	b := NewMultiClass(data, true, O)
+	acc = b.Accuracy(data)
+	fmt.Printf("Train accuracy: %.3f\n", acc)
+	feat, err := b.FeatureImportance()
+	if err != nil {
+		Te.Error(err)
+	}
+	fmt.Println("XGBoost:\n", feat.String())
+
+	O = DefaultGOptions()
+	acc, err = MultiClassCrossValidation(data, 5, false, &CVOptions{O: O, Conc: false})
+	if err != nil {
+		Te.Error(err)
+	}
+	b = NewMultiClass(data, false, O)
+	acc = b.Accuracy(data)
+	fmt.Printf("Train accuracy: %.3f\n", acc)
+	feat, err = b.FeatureImportance()
+	if err != nil {
+		Te.Error(err)
+	}
+	fmt.Println("GBoost:\n", feat.String())
+
+}

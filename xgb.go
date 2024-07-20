@@ -20,6 +20,7 @@ type MultiClass struct {
 	tmp           []float64
 	predtmp       []float64
 	baseScore     float64
+	xgb           bool
 }
 
 type Options struct {
@@ -150,7 +151,7 @@ func NewMultiClass(D *utils.DataBunch, xgboost bool, opts ...*Options) *MultiCla
 		}
 		boosters = append(boosters, classes)
 	}
-	return &MultiClass{b: boosters, utilsingRate: O.LearningRate, probTransform: utils.SoftMaxDense, classLabels: differentlabels, baseScore: O.BaseScore}
+	return &MultiClass{b: boosters, utilsingRate: O.LearningRate, probTransform: utils.SoftMaxDense, classLabels: differentlabels, baseScore: O.BaseScore, xgb: O.XGB}
 
 }
 
@@ -242,6 +243,19 @@ func (M *MultiClass) PredictSingle(instance []float64, predictions ...[]float64)
 	D = M.probTransform(O, D)
 	preds = D.RawMatrix().Data
 	return preds //SHOULD contain the numbers now.
+}
+
+func (M *MultiClass) FeatureImportance() (*Feats, error) {
+	ret := NewFeats(M.xgb)
+	for round, ensemble := range M.b {
+		for class, tree := range ensemble {
+			_, err := tree.FeatureImportance(M.xgb, ret)
+			if err != nil {
+				return nil, fmt.Errorf("Error with features of tree for class %d, boosting round %d", class, round)
+			}
+		}
+	}
+	return ret, nil
 }
 
 func updateLeaves(tree *Tree, gradient, hessian *mat.Dense) {

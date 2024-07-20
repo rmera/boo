@@ -22,10 +22,12 @@ type DataBunch struct {
 	FloatLabels []float64 //for now we keep both
 }
 
+// returns a one-hot-encoded representation of the keys of the data bunch
 func (D *DataBunch) OHEKeys() (*mat.Dense, []string) {
 	return oneHotEncodeDense(D.Keys)
 }
 
+// Returns a one-hot-encoded representation of the labels of the data bunch.
 func (D *DataBunch) OHELabels() (*mat.Dense, []int) {
 	return oneHotEncodeDense(D.Labels)
 }
@@ -38,6 +40,7 @@ func (D *DataBunch) getithLabel(i int) int {
 	}
 }
 
+// Returns a string representation of the data bunch
 func (D *DataBunch) String() string {
 	if D == nil {
 		return ""
@@ -135,6 +138,8 @@ func svmliberror(err error, linenu int, line string) error {
 	return fmt.Errorf("Can't read line %d in libSVM-formatted file, Error: %v, line: %s", linenu, err, line)
 }
 
+// reads a libSVM-formatted file and returns a DataBunch. It's a pretty poor reader right now
+// as it doesn't support sparse-libSVM files.
 func DataBunchFromLibSVMFile(filename string, hasHeader bool) (*DataBunch, error) {
 	f, err := os.Open(filename)
 	if err != nil {

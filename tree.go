@@ -3,6 +3,10 @@ package learn
 import (
 	"fmt"
 	"math"
+	"slices"
+	"sort"
+	"strings"
+	"sync"
 
 	"github.com/rmera/chemlearn/utils"
 	"gonum.org/v1/gonum/floats"
@@ -284,4 +288,82 @@ func (T *Tree) Print(spacing string, featurenames ...[]string) string {
 	returnString += T.Right.Print(spacing+"  ", featurenames...)
 
 	return returnString
+}
+
+type Feats struct {
+	xgb   bool
+	feat  []int
+	gains []float64
+	m     sync.Mutex
+}
+
+func NewFeats(xgboost bool) *Feats {
+	return &Feats{feat: make([]int, 0, 1), gains: make([]float64, 0, 1), xgb: xgboost}
+}
+
+func (f *Feats) Add(feature int, gain float64) {
+	index := slices.Index(f.feat, feature)
+	if index >= 0 {
+		f.m.Lock()
+		f.gains[index] += gain
+		f.m.Unlock()
+		return
+	}
+	f.m.Lock()
+	f.feat = append(f.feat, feature)
+	f.gains = append(f.gains, gain)
+	f.m.Unlock()
+	return
+}
+
+func (f *Feats) Merge(f2 *Feats) {
+	for i, v := range f2.feat {
+		f.Add(v, f2.gains[i])
+	}
+}
+
+func (f *Feats) XGB() bool { return f.xgb }
+func (f *Feats) Len() int  { return len(f.feat) }
+func (f *Feats) Less(i, j int) bool {
+	if f.xgb {
+		return f.gains[i] > f.gains[j] //in xgb higher scores go first
+
+	}
+	return f.gains[i] < f.gains[j]
+}
+
+func (f *Feats) Swap(i, j int) {
+	f.feat[i], f.feat[j] = f.feat[j], f.feat[i]
+	f.gains[i], f.gains[j] = f.gains[j], f.gains[i]
+}
+
+func (f *Feats) String() string {
+	ret := make([]string, 1, len(f.feat)+1)
+	xgb := "gradient boosting"
+	if f.xgb {
+		xgb = "xgboost"
+	}
+	ret[0] = fmt.Sprintf("Feature Importance in descending order, for %s:", xgb)
+	for i, v := range f.feat {
+		ret = append(ret, fmt.Sprintf("%d Feature %d with score: %.3f", i+1, v, f.gains[i]))
+	}
+	return strings.Join(ret, "\n")
+}
+
+// returns a string with a list of the features, in descending order of importance, and their scores.
+func (T *Tree) FeatureImportance(xgboost bool, gains ...*Feats) (*Feats, error) {
+	if T.Leaf() {
+		if len(gains) == 0 {
+			return nil, fmt.Errorf("Undetermined error when collecting gains/feature pairs") //sorry
+		}
+		sort.Sort(gains[0])
+		return nil, nil
+	}
+	if len(gains) == 0 { //first node
+		gains = append(gains, NewFeats(xgboost))
+	}
+	gains[0].Add(T.splitFeatureIndex, T.bestScoreSoFar)
+	T.Left.FeatureImportance(xgboost, gains...)
+	T.Right.FeatureImportance(xgboost, gains...)
+	return gains[0], nil
 }

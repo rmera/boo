@@ -7,6 +7,7 @@ import (
 	"sync"
 )
 
+// Structure for serializing a tree node.
 type JSONNode struct {
 	Id                uint
 	Nsamples          int
@@ -22,6 +23,7 @@ type JSONNode struct {
 	XGB               bool
 }
 
+// This returns a new and consecutive ID every time it's Next() metohd is called, starting with 1. It is concurrent-safe.
 type idGiver struct {
 	current uint
 	mu      sync.Mutex
@@ -37,6 +39,7 @@ func (g *idGiver) Next() uint {
 
 }
 
+// A tree that can "pack" itself as a JSONNode
 type JTree interface {
 	JNode(uint) *JSONNode
 	//sets the left or right node to the given JTree and return it
@@ -46,6 +49,8 @@ type JTree interface {
 	Leaf() bool
 }
 
+// takes a bufio reader containing a json-serialized representation of a Tree, plus a
+// tree creator function, and returns the created JTree
 func UnJSONTree(str string, r *bufio.Reader, creator func(*JSONNode) JTree) (JTree, error) {
 	j := new(JSONNode)
 	err := json.Unmarshal([]byte(str), j)
@@ -80,6 +85,8 @@ func UnJSONTree(str string, r *bufio.Reader, creator func(*JSONNode) JTree) (JTr
 	return ret, nil
 }
 
+// takes a JSON-able tree and returns it as a slice of json-serialized []byte,
+// where each element in the slice is a node.
 func JSONTree(t JTree, ids ...*idGiver) ([][]byte, uint, error) {
 	var id *idGiver
 	if len(ids) == 0 {
