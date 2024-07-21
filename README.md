@@ -1,14 +1,13 @@
 # Gradient-boosting learning for multi-class classification.
 
 chemLearn is a simple library that implements simple versions of gradient boosting
-and xgboost for classification, in pure Go. 
+and [XGBoost](https://github.com/dmlc/xgboost) ([reference](https://arxiv.org/abs/1603.02754)) for classification, in pure Go. 
 
 The goal is for chemLearn to become a part of goChem when its mature enough, hence the name. Still, there is nothing specific about Chemistry in the library.
 
 I have tried to keep things simple, including the data format.
 
-There is some parallelization/concurrency for the cross-validation grid for XGBoost, I should
-add it to the regular gradient boosting CV grid soon. That's as far as I'll got for now.
+There is parallelization/concurrency for the cross-validation grid. That's as far as I'll got for now.
 
 Some facilities, such as cross-validation and file-reading (a _very_ naive/incomplete
 reader for the libSVM format) are provided.
@@ -17,8 +16,10 @@ Both the regular gradient-boosting as well as the xgboost implementations are cl
 
 * [Gradient boosting multi-class classification from scratch](https://randomrealizations.com/posts/gradient-boosting-multi-class-classification-from-scratch/)
 * [XGBoost from scratch](https://randomrealizations.com/posts/xgboost-from-scratch/)
+* [Decision tree from scratch](https://randomrealizations.com/posts/decision-tree-from-scratch/)
 
-Both by [Matt Bowers](https://github.com/mcb00)
+by [Matt Bowers](https://github.com/mcb00)
+
 
 Disclaimer: The whole thing is not really "production quality" as of now. More debugging, a lot more test and cleanup are needed.
 
