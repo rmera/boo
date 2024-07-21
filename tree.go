@@ -18,15 +18,15 @@ type Tree struct {
 	hess              []float64
 	x                 [][]float64
 	y                 []float64
-	Samples           []int
+	samples           []int
 	bestScoreSoFar    float64
-	Value             float64
+	value             float64
 	nsamples          int //n
 	features          int //c
 	splitFeatureIndex int
 	threshold         float64
-	Left              *Tree
-	Right             *Tree
+	left              *Tree
+	right             *Tree
 	xgb               bool
 	branches          int
 }
@@ -86,18 +86,18 @@ func NewTree(X [][]float64, o *TreeOptions) *Tree {
 			o.Indexes = append(o.Indexes, i)
 		}
 	}
-	ret.Samples = o.Indexes
+	ret.samples = o.Indexes
 	ret.grads = o.Gradients
 	ret.hess = o.Hessian
 	ret.y = o.Y
 	if ret.xgb {
-		ret.Value = -1 * floats.Sum(utils.SampleSlice(ret.grads, o.Indexes)) / (floats.Sum(utils.SampleSlice(ret.hess, o.Indexes)) + o.RegLambda) //eq 5
+		ret.value = -1 * floats.Sum(utils.SampleSlice(ret.grads, o.Indexes)) / (floats.Sum(utils.SampleSlice(ret.hess, o.Indexes)) + o.RegLambda) //eq 5
 		ret.bestScoreSoFar = 0.0
 	} else {
 		ret.bestScoreSoFar = math.Inf(1)
 		sam := utils.SampleSlice(ret.y, o.Indexes)
-		ret.Value = floats.Sum(sam) / float64(len(sam))
-
+		ret.value = floats.Sum(sam) / float64(len(sam))
+		//	fmt.Println("indices quiu", o.Indexes, len(ret.samples), sam, ret.y, ret.value) /////////////////////
 	}
 	ret.nsamples = len(o.Indexes)
 	ret.features = len(X[0]) //no col subsampling
@@ -133,11 +133,10 @@ func (T *Tree) maybeInsertChildNode(o *TreeOptions) {
 	oright := oleft.clone()
 	oleft.Indexes = indexleft
 	oright.Indexes = indexright
-	//	fmt.Println("indices quiu", oleft.Indexes, oright.Indexes) /////////////////////
-	T.Left = NewTree(T.x, oleft)
-	T.branches += T.Left.branches
-	T.Right = NewTree(T.x, oright)
-	T.branches += T.Right.branches
+	T.left = NewTree(T.x, oleft)
+	T.branches += T.left.branches
+	T.right = NewTree(T.x, oright)
+	T.branches += T.right.branches
 }
 
 func (T *Tree) findBetterSplit(featureIndex int, o *TreeOptions) {
@@ -241,13 +240,13 @@ func (T *Tree) Predict(data [][]float64, preds []float64) []float64 {
 
 func (T *Tree) PredictSingle(row []float64) float64 {
 	if T.Leaf() {
-		return T.Value
+		return T.value
 	}
 	var child *Tree
 	if row[T.splitFeatureIndex] <= T.threshold {
-		child = T.Left
+		child = T.left
 	} else {
-		child = T.Right
+		child = T.right
 	}
 	return child.PredictSingle(row)
 }
@@ -269,7 +268,7 @@ func (T *Tree) Print(spacing string, featurenames ...[]string) string {
 	}
 	if T.Leaf() {
 		returnString := "  " + spacing + "PREDICT    "
-		returnString += fmt.Sprintf("%.3f with %d Samples", T.Value, T.Samples) + "\n"
+		returnString += fmt.Sprintf("%.3f with %d Samples", T.value, T.samples) + "\n"
 		return returnString
 
 	}
@@ -282,10 +281,10 @@ func (T *Tree) Print(spacing string, featurenames ...[]string) string {
 	returnString += "\n"
 
 	returnString += spacing + "---> True" + "\n"
-	returnString += T.Left.Print(spacing+"  ", featurenames...)
+	returnString += T.left.Print(spacing+"  ", featurenames...)
 
 	returnString += spacing + "---> False" + "\n"
-	returnString += T.Right.Print(spacing+"  ", featurenames...)
+	returnString += T.right.Print(spacing+"  ", featurenames...)
 
 	return returnString
 }
@@ -363,7 +362,7 @@ func (T *Tree) FeatureImportance(xgboost bool, gains ...*Feats) (*Feats, error) 
 		gains = append(gains, NewFeats(xgboost))
 	}
 	gains[0].Add(T.splitFeatureIndex, T.bestScoreSoFar)
-	T.Left.FeatureImportance(xgboost, gains...)
-	T.Right.FeatureImportance(xgboost, gains...)
+	T.left.FeatureImportance(xgboost, gains...)
+	T.right.FeatureImportance(xgboost, gains...)
 	return gains[0], nil
 }

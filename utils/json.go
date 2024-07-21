@@ -23,6 +23,13 @@ type JSONNode struct {
 	XGB               bool
 }
 
+func (j *JSONNode) String() string {
+	r := fmt.Sprintf("ID:%d, Samples:%v, ns: %d, score: %.3f,Value:%.3f", j.Id, j.Samples, j.Nsamples, j.BestScoreSoFar, j.Value)
+	r2 := fmt.Sprintf("Threshold: %.3f, Leaf: %v, Branches: %d, LeftID: %d, ", j.Threshold, j.Leaf, j.Branches, j.Leftid)
+	r3 := fmt.Sprintf("RightID: %d, XGB:%v", j.Rightid, j.XGB)
+	return r + r2 + r3
+}
+
 // This returns a new and consecutive ID every time it's Next() metohd is called, starting with 1. It is concurrent-safe.
 type idGiver struct {
 	current uint
@@ -110,7 +117,7 @@ func JSONTree(t JTree, ids ...*idGiver) ([][]byte, uint, error) {
 	}
 	retstr, err := json.Marshal(ret)
 	if err != nil {
-		return nil, 0, fmt.Errorf("Error in id: %d, that has %d branches under it: %v", ID, ret.Branches, err)
+		return nil, 0, fmt.Errorf("Error in id: %d, that has %d branches under it: %v. %v", ID, ret.Branches, err, ret)
 	}
 	rslice := [][]byte{retstr}
 	if errl != nil {

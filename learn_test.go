@@ -189,7 +189,7 @@ func TestGJSON(Te *testing.T) {
 	fmt.Println("train set accuracy of the recovered object", m.Accuracy(data))
 }
 
-func TTestCrossValXBoost(Te *testing.T) {
+func TestCrossValXBoost(Te *testing.T) {
 	data, err := utils.DataBunchFromLibSVMFile("tests/train.svm", true)
 	if err != nil {
 		Te.Error(err)
@@ -225,7 +225,7 @@ func TTestCrossValXBoost(Te *testing.T) {
 
 }
 
-func TTestCrossValGBoost(Te *testing.T) {
+func TestCrossValGBoost(Te *testing.T) {
 	data, err := utils.DataBunchFromLibSVMFile("tests/train.svm", true)
 	if err != nil {
 		Te.Error(err)
@@ -259,7 +259,7 @@ func TTestCrossValGBoost(Te *testing.T) {
 
 }
 
-func TTestCrossValXGBoostGrid(Te *testing.T) {
+func TestCrossValXGBoostGrid(Te *testing.T) {
 	data, err := utils.DataBunchFromLibSVMFile("tests/train.svm", true)
 	if err != nil {
 		Te.Error(err)
@@ -293,7 +293,7 @@ func TTestCrossValXGBoostGrid(Te *testing.T) {
 
 }
 
-func TTestConcCrossValGGBoostGrid(Te *testing.T) {
+func TestConcCrossValGGBoostGrid(Te *testing.T) {
 	data, err := utils.DataBunchFromLibSVMFile("tests/train.svm", true)
 	if err != nil {
 		Te.Error(err)

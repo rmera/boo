@@ -35,8 +35,9 @@ type Options struct {
 	BaseScore      float64
 	MinSample      int //the minimum samples in each tree
 	TreeMethod     string
-	Verbose        bool
-	Loss           utils.LossFunc
+	//	EarlyStopRounds      int //stop after n consecutive rounds of no improvement. Not implemented yet.
+	Verbose bool
+	Loss    utils.LossFunc
 }
 
 func DefaultXOptions() *Options {
@@ -97,6 +98,10 @@ func NewMultiClass(D *utils.DataBunch, xgboost bool, opts ...*Options) *MultiCla
 	rawPred := mat.NewDense(r, c, nil)
 	utils.ToOnes(rawPred)
 	rawPred.Scale(O.BaseScore, rawPred)
+	//just to be safe
+	if O.MinChildWeight < 1 {
+		O.MinChildWeight = 1
+	}
 	probs := utils.SoftMaxDense(rawPred, nil)
 	grads := mat.NewDense(1, r, nil)
 	hess := mat.NewDense(1, r, nil)
@@ -115,13 +120,14 @@ func NewMultiClass(D *utils.DataBunch, xgboost bool, opts ...*Options) *MultiCla
 			var tree *Tree
 			kthlabelvector := utils.DenseCol(ohelabels, k)
 			kthrawpred := utils.DenseCol(rawPred, k)
-			hess = O.Loss.Hessian(kthrawpred, nil) //same here, I can pass them instead of nil
+			hess = O.Loss.Hessian(kthrawpred, nil) //keep an eye on this.
 			kthprobs := utils.DenseCol(probs, k)
+			//	fmt.Println("kthprobs", kthprobs) //////////////////////////////////////////////
 			if O.XGB {
 				tOpts = DefaultXTreeOptions()
 				tOpts.MinChildWeight = O.MinChildWeight
 				tOpts.MaxDepth = O.MaxDepth
-				grads = O.Loss.Gradients(kthlabelvector, kthprobs, grads) //here I could/should reuse the grads slice
+				grads = O.Loss.Gradients(kthlabelvector, kthprobs, grads)
 				tOpts.RegLambda = O.RegLambda
 				tOpts.Gamma = O.Gamma
 				tOpts.Indexes = sampleIndexes
@@ -135,6 +141,7 @@ func NewMultiClass(D *utils.DataBunch, xgboost bool, opts ...*Options) *MultiCla
 				tOpts.MaxDepth = O.MaxDepth
 				grads = O.Loss.NegGradients(kthlabelvector, kthprobs, grads)
 				tOpts.Y = grads.RawRowView(0)
+				//	fmt.Println("Y", tOpts.Y) ////////////////////////
 				tOpts.Gradients = nil
 				tOpts.Hessian = nil
 				tree = NewTree(D.Data, tOpts)
@@ -143,6 +150,7 @@ func NewMultiClass(D *utils.DataBunch, xgboost bool, opts ...*Options) *MultiCla
 			tmpPreds = tree.Predict(D.Data, tmpPreds)
 			floats.Scale(O.LearningRate, tmpPreds)
 			utils.AddToCol(rawPred, tmpPreds, k)
+			//	fmt.Println("rawPred", rawPred) ////////////////////////
 			probs = utils.SoftMaxDense(rawPred, probs)
 			if O.Verbose {
 				fmt.Printf("round: %d, class: %d train loss = %.3f", round, k, O.Loss.Loss(kthlabelvector, mat.NewDense(0, len(tmpPreds), tmpPreds), nil))
@@ -196,6 +204,8 @@ func SubSample(totdata int, subsample float64) []int {
 	return ret
 }
 
+// Returns the percentage of accuracy of the model on the data (which needs to contain
+// labels). You can give it the number of classes present, which helps with memory.
 func (M *MultiClass) Accuracy(D *utils.DataBunch, classes ...int) float64 {
 	right := 0
 	instances := D.Data
@@ -213,6 +223,8 @@ func (M *MultiClass) Accuracy(D *utils.DataBunch, classes ...int) float64 {
 
 }
 
+// Predicts the class to which a single sample belongs. You can give a slice of floats
+// to use as temporal storage for the probabilities that are used to assign the class
 func (M *MultiClass) PredictSingleClass(instance []float64, predictions ...[]float64) int {
 	preds := M.PredictSingle(instance, predictions...)
 	prediction := 0
@@ -226,6 +238,8 @@ func (M *MultiClass) PredictSingleClass(instance []float64, predictions ...[]flo
 	return prediction
 }
 
+// Returns a slice with the probability of the sample belonging to each class. You can supply
+// a slice to be filled with the predictions in order to avoid allocation.
 func (M *MultiClass) PredictSingle(instance []float64, predictions ...[]float64) []float64 {
 	var preds []float64
 	preds = make([]float64, len(M.b[0]))
@@ -245,6 +259,7 @@ func (M *MultiClass) PredictSingle(instance []float64, predictions ...[]float64)
 	return preds //SHOULD contain the numbers now.
 }
 
+// Returns the features ranked by their "importance" to the classification.
 func (M *MultiClass) FeatureImportance() (*Feats, error) {
 	ret := NewFeats(M.xgb)
 	for round, ensemble := range M.b {
@@ -260,28 +275,28 @@ func (M *MultiClass) FeatureImportance() (*Feats, error) {
 
 func updateLeaves(tree *Tree, gradient, hessian *mat.Dense) {
 	fn := func(leaf *Tree) {
-		if leaf.Samples == nil {
+		if leaf.samples == nil {
 			panic("Samples in one leaf are nil!")
 		}
 		var sumhess, sumgrad float64
-		for _, w := range leaf.Samples {
+		for _, w := range leaf.samples {
 			sumhess += hessian.At(0, w)
 			sumgrad += gradient.At(0, w)
 		}
 		nval := sumgrad / sumhess
-		leaf.Value = nval
+		leaf.value = nval
 	}
 	applyToLeafs(tree, fn)
 }
 
 func applyToLeafs(tree *Tree, fn func(*Tree)) {
 
-	if tree.Left != nil {
-		applyToLeafs(tree.Left, fn)
+	if tree.left != nil {
+		applyToLeafs(tree.left, fn)
 	}
 
-	if tree.Right != nil {
-		applyToLeafs(tree.Right, fn)
+	if tree.right != nil {
+		applyToLeafs(tree.right, fn)
 	}
 	if tree.Leaf() {
 		fn(tree)

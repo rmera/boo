@@ -224,6 +224,7 @@ func (m *MSELoss) NegGradients(yohelabels, probabilities, results *mat.Dense) *m
 		r, c := yohelabels.Dims()
 		results = mat.NewDense(r, c, nil)
 	}
+	//fmt.Println("labels,probs", yohelabels, probabilities) /////////////////////////////////////
 	results.Sub(yohelabels, probabilities)
 	return results
 }

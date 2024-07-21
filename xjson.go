@@ -141,7 +141,7 @@ func (t *Tree) JNode(id uint) *utils.JSONNode {
 	}
 	ret := &utils.JSONNode{
 		Id:                id,
-		Samples:           t.Samples,
+		Samples:           t.samples,
 		Nsamples:          t.nsamples,
 		Leaf:              t.Leaf(),
 		Threshold:         t.threshold,
@@ -149,7 +149,7 @@ func (t *Tree) JNode(id uint) *utils.JSONNode {
 		Branches:          t.branches,
 		BestScoreSoFar:    bs,
 		SplitFeatureIndex: t.splitFeatureIndex,
-		Value:             t.Value,
+		Value:             t.value,
 		Leftid:            0,
 		Rightid:           0,
 	}
@@ -158,30 +158,30 @@ func (t *Tree) JNode(id uint) *utils.JSONNode {
 
 func (T *Tree) Leftf(l utils.JTree) utils.JTree {
 	if l != nil {
-		T.Left = l.(*Tree)
+		T.left = l.(*Tree)
 	}
 
-	if T.Left == nil {
+	if T.left == nil {
 		return nil
 	}
-	return T.Left
+	return T.left
 }
 
 func (T *Tree) Rightf(r utils.JTree) utils.JTree {
 	if r != nil {
-		T.Right = r.(*Tree)
+		T.right = r.(*Tree)
 	}
-	if T.Right == nil {
+	if T.right == nil {
 		return nil
 	}
-	return T.Right
+	return T.right
 }
 
 func creator(j *utils.JSONNode) utils.JTree {
 	ret := &Tree{
 		bestScoreSoFar:    j.BestScoreSoFar,
-		Value:             j.Value,
-		Samples:           j.Samples,
+		value:             j.Value,
+		samples:           j.Samples,
 		nsamples:          j.Nsamples,
 		splitFeatureIndex: j.SplitFeatureIndex,
 		threshold:         j.Threshold,
@@ -189,7 +189,7 @@ func creator(j *utils.JSONNode) utils.JTree {
 		xgb:               j.XGB,
 	}
 	if j.Leaf && !j.XGB {
-		ret.bestScoreSoFar = math.Inf(1)
+		ret.bestScoreSoFar = math.Inf(0)
 	}
 	return ret
 }
