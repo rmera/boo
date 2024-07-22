@@ -1,16 +1,24 @@
 # Gradient-boosting learning for multi-class classification.
 
+## Important note: 
+
+There is a bug in the regular gradient boosting implementation. Please dont' use it as long as this note is up. The XGBoost implementation is not affected.
+
+## Introduction
+
 chemLearn is a simple library that implements simple versions of gradient boosting
 and [XGBoost](https://github.com/dmlc/xgboost) ([reference](https://arxiv.org/abs/1603.02754)) for classification, in pure Go. 
 
 The goal is for chemLearn to become a part of goChem when its mature enough, hence the name. Still, there is nothing specific about Chemistry in the library.
 
-I have tried to keep things simple, including the data format.
+I have tried to keep things simple, including the data format. 
 
-There is parallelization/concurrency for the cross-validation grid. That's as far as I'll got for now.
+The library is pure Go, so there are no runtime dependencies. There is only one compilation-time dependency (the [Gonum library](www.gonum.org)).
 
-Some facilities, such as cross-validation and file-reading (a _very_ naive/incomplete
-reader for the libSVM format) are provided.
+There is parallelization/concurrency for the cross-validation grid. That's as far as I'll go with parallelization for now.
+
+Some facilities, such as cross-validation and file-reading (a _very_ naive/incomplete)
+reader for the libSVM format), are provided.
 
 Both the regular gradient-boosting as well as the xgboost implementations are close ports/translations from the following Python implementations:
 
@@ -21,12 +29,26 @@ Both the regular gradient-boosting as well as the xgboost implementations are cl
 by [Matt Bowers](https://github.com/mcb00)
 
 
-Disclaimer: The whole thing is not really "production quality" as of now. More debugging, a lot more test and cleanup are needed.
+## Things that are missing
 
+Many of these reflect the fact that I mostly work with rather small, dense datasets. 
+
+* Column subsampling. I expect this to be implemented soon, as it seems pretty easy to do.
+* There are only exact trees, and no sparsity-awareness.
+* In general, computational performance is not a priority for this project, at least for now. 
+* As mentioned above, the libSVM reading support is very basic, and there is no other file-format supported (such as csv). 
+I doubt there will be. Instead, the data structure is very simple, so you can use your favorite library (say, golearn / libSVM-go)to read data and then put it in a chemLearn's databunch structure.
+* Only classification is supported. Still, since its  multi-class classification using one-hot-encoding, and the "activation function" (softmax by default) can be changed, I suspect you can trick the function into doing regression by giving one class and an activation function that does nothing.
+* There is nothing to deal with missing features in the samples.
+* The tests are rather messy and, while complete, more detailed (unit) tests are still missing. This is an area where I'd love contributions,
+but will work on anyway, eventually.
+* Documentation (though the tests can be used as examples, as stated below). Comments in the code are being improved.
+* A better API. chemLearn will remain rather "low-level" but right now the distintion between regular GB and XGB is tricky. I plan to make
+separate packages for each, that call this one, so the user doesn't deal with the difference on every function. That should be doable without breaking the current API, but no promises there, at least until a "1.0" release (the "basic" way in which functions work will not change, though). 
 
 # Using chemLearn
 
-Hopefully we'll be adding instructions, for now, take a look at the test file (learn_test.go) to see examples.
+Hopefully I'll add instructions, for now, take a look at the test file (learn_test.go) to see examples. The code is --mostly--commented, so the regular Go documentation system should work. (I'm working on improving the comments).
 
  ## On machine learning
 
