@@ -62,7 +62,7 @@ If you want to be an informed user of Statistical/Machine learning, these are my
 * [The Random Realizations blog](https://randomrealizations.com) Where most of the knowledge in this library comes from. Do read it.
 * [An Introduction to Statistical Learning](https://www.statlearning.com/) They don't call it 'The Bible' for nothing.
 
-(c) 2024 Raul Mera A.
+(c) 2024 Raul Mera A., University of Tarapaca.
 
 This program, including its documentation, 
 is free software; you can redistribute it and/or modify
