@@ -34,6 +34,7 @@ type Tree struct {
 type TreeOptions struct {
 	XGB             bool
 	MinChildWeight  float64
+	AllowedColumns  []int //for column sub-sampling
 	RegLambda       float64
 	Gamma           float64
 	ColSampleByNode float64
@@ -112,6 +113,9 @@ func NewTree(X [][]float64, o *TreeOptions) *Tree {
 
 func (T *Tree) maybeInsertChildNode(o *TreeOptions) {
 	for i := 0; i < T.features; i++ {
+		if len(o.AllowedColumns) != 0 && !slices.Contains(o.AllowedColumns, i) {
+			continue
+		}
 		T.findBetterSplit(i, o)
 	}
 	if T.Leaf() {
@@ -209,7 +213,6 @@ func (T *Tree) findBetterSplit(featureIndex int, o *TreeOptions) {
 			T.splitFeatureIndex = featureIndex
 			T.bestScoreSoFar = gain
 			T.threshold = (xi + xinext) / 2
-
 		}
 	}
 }

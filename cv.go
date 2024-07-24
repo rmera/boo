@@ -27,7 +27,6 @@ func MultiClassCrossValidation(D *utils.DataBunch, nfold int, xgboost bool, opts
 		if opts.O == nil {
 			b = NewMultiClass(train, xgboost)
 		} else {
-			//	fmt.Println(opts.O) ///////////////////////////////////
 			b = NewMultiClass(train, xgboost, opts.O)
 		}
 		a := b.Accuracy(test)
@@ -51,11 +50,15 @@ type CVGridOptions struct {
 	Gamma          [3]float64
 	Lambda         [3]float64
 	SubSample      [3]float64
+	ColSubSample   [3]float64
 	MinChildWeight [3]float64
 	Verbose        bool
 	NCPUs          int
 }
 
+// Default options for crossvalidation grid search for
+// gradient boosting hyperparameters. Note that these are not
+// necessarily good choices.
 func DefaultGCVGridOptions() *CVGridOptions {
 	ret := new(CVGridOptions)
 	ret.XGB = false
@@ -69,10 +72,14 @@ func DefaultGCVGridOptions() *CVGridOptions {
 	ret.Gamma = [3]float64{0.0, 1, 2}
 	ret.Lambda = [3]float64{0, 1, 2}
 	ret.SubSample = [3]float64{1, 1, 2}
+	ret.ColSubSample = [3]float64{1, 1, 2}
 	ret.Verbose = false
 	return ret
 }
 
+// Default options for crossvalidation grid search for
+// XGBoost hyperparameters. Note that these are not necessaritly
+// good choices.
 func DefaultXCVGridOptions() *CVGridOptions {
 	ret := new(CVGridOptions)
 	ret.XGB = true
@@ -82,6 +89,7 @@ func DefaultXCVGridOptions() *CVGridOptions {
 	ret.Gamma = [3]float64{0.0, 0.5, 0.1}
 	ret.Lambda = [3]float64{0.5, 2.0, 0.2}
 	ret.SubSample = [3]float64{0.6, 0.9, 0.1}
+	ret.ColSubSample = [3]float64{0.6, 0.9, 0.1}
 	ret.MinChildWeight = [3]float64{3, 5, 1}
 	ret.Verbose = false
 	ret.NCPUs = 1
@@ -131,34 +139,37 @@ func ConcCVGrid(data *utils.DataBunch, nfold int, xgboost bool, options ...*CVGr
 	for cw := o.MinChildWeight[0]; cw <= o.MinChildWeight[1]; cw += o.MinChildWeight[2] {
 		for rounds := o.Rounds[0]; rounds <= o.Rounds[1]; rounds += o.Rounds[2] {
 			for md := o.MaxDepth[0]; md <= o.MaxDepth[1]; md += o.MaxDepth[2] {
-				for lr := o.LearningRate[0]; lr <= o.LearningRate[1]; lr += o.LearningRate[2] {
-					for lam := o.Lambda[0]; lam <= o.Lambda[1]; lam += o.Lambda[2] {
-						for gam := o.Gamma[0]; gam <= o.Gamma[1]; gam += o.Gamma[2] {
-							for ss := o.SubSample[0]; ss <= o.SubSample[1]; ss += o.SubSample[2] {
+				for css := o.ColSubSample[0]; css <= o.ColSubSample[1]; css += o.ColSubSample[2] {
+					for lr := o.LearningRate[0]; lr <= o.LearningRate[1]; lr += o.LearningRate[2] {
+						for lam := o.Lambda[0]; lam <= o.Lambda[1]; lam += o.Lambda[2] {
+							for gam := o.Gamma[0]; gam <= o.Gamma[1]; gam += o.Gamma[2] {
+								for ss := o.SubSample[0]; ss <= o.SubSample[1]; ss += o.SubSample[2] {
 
-								t := defaultoptions()
-								t.LearningRate = lr
-								t.MaxDepth = md
-								t.Rounds = rounds
-								t.RegLambda = lam
-								t.Gamma = gam
-								t.SubSample = ss
-								t.MinChildWeight = cw
-								conc := &CVOptions{O: t, acc: accs[cpus], err: errs[cpus], ochan: os[cpus], Conc: true}
-								go MultiClassCrossValidation(data, nfold, xgboost, conc)
-								cpus++
-								if cpus == o.NCPUs {
-									var err error
-									bestacc, finaloptions, err = rescueConcValues(errs, accs, os, bestacc, finaloptions, o.Verbose)
+									t := defaultoptions()
+									t.ColSubSample = css
+									t.LearningRate = lr
+									t.MaxDepth = md
+									t.Rounds = rounds
+									t.RegLambda = lam
+									t.Gamma = gam
+									t.SubSample = ss
+									t.MinChildWeight = cw
+									conc := &CVOptions{O: t, acc: accs[cpus], err: errs[cpus], ochan: os[cpus], Conc: true}
+									go MultiClassCrossValidation(data, nfold, xgboost, conc)
+									cpus++
+									if cpus == o.NCPUs {
+										var err error
+										bestacc, finaloptions, err = rescueConcValues(errs, accs, os, bestacc, finaloptions, o.Verbose)
 
-									if err != nil {
-										return -1, nil, nil, err
+										if err != nil {
+											return -1, nil, nil, err
+										}
+										cpus = 0
 									}
-									cpus = 0
+
 								}
 
 							}
-
 						}
 					}
 				}
@@ -166,7 +177,6 @@ func ConcCVGrid(data *utils.DataBunch, nfold int, xgboost bool, options ...*CVGr
 		}
 	}
 	return bestacc, accuracies, finaloptions, nil
-
 }
 
 func rescueConcValues(errors []chan error, accs []chan float64, opts []chan *Options, bestacc float64, bestop *Options, verbose bool) (float64, *Options, error) {

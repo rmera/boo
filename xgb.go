@@ -35,6 +35,7 @@ type Options struct {
 	MinChildWeight float64
 	Gamma          float64
 	SubSample      float64
+	ColSubSample   float64
 	BaseScore      float64
 	MinSample      int //the minimum samples in each tree
 	TreeMethod     string
@@ -50,6 +51,7 @@ func DefaultXOptions() *Options {
 	O.XGB = true
 	O.Rounds = 20
 	O.SubSample = 0.8
+	O.ColSubSample = 0.8
 	O.RegLambda = 1.5
 	O.MinChildWeight = 3
 	O.MaxDepth = 5
@@ -118,9 +120,12 @@ func NewMultiClass(D *utils.DataBunch, xgboost bool, opts ...*Options) *MultiCla
 	hess := mat.NewDense(1, r, nil)
 	tmpPreds := make([]float64, r)
 	for round := 0; round < O.Rounds; round++ {
-		var sampleIndexes []int
+		var sampleIndexes, sampleCols []int
 		if O.SubSample < 1 && xgboost {
 			sampleIndexes = SubSample(len(D.Data), O.SubSample)
+		}
+		if O.ColSubSample < 1 && xgboost {
+			sampleCols = SubSample(len(D.Data[0]), O.ColSubSample)
 		}
 		if len(sampleIndexes) < O.MinSample {
 			continue
@@ -141,6 +146,7 @@ func NewMultiClass(D *utils.DataBunch, xgboost bool, opts ...*Options) *MultiCla
 				tOpts.RegLambda = O.RegLambda
 				tOpts.Gamma = O.Gamma
 				tOpts.Indexes = sampleIndexes
+				tOpts.AllowedColumns = sampleCols
 				tOpts.Gradients = grads.RawRowView(0)
 				tOpts.Hessian = hess.RawRowView(0)
 				tOpts.Y = kthlabelvector.RawRowView(0)
