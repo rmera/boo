@@ -10,15 +10,6 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-func TestLibSVM(Te *testing.T) {
-	data, err := utils.DataBunchFromLibSVMFile("tests/train.svm", true)
-	if err != nil {
-		Te.Error(err)
-	}
-	fmt.Println(data.String())
-	fmt.Println(data.LibSVM())
-}
-
 func TestGTree(Te *testing.T) {
 	data, err := utils.DataBunchFromLibSVMFile("tests/train.svm", true)
 	if err != nil {
