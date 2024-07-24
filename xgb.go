@@ -12,6 +12,8 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
+// MultiClass is a multi-class gradient-boosted (xgboost or "regular")
+// classification ensamble.
 type MultiClass struct {
 	b             [][]*Tree
 	utilsingRate  float64
@@ -23,6 +25,7 @@ type MultiClass struct {
 	xgb           bool
 }
 
+// Contain options to create a multi-class classification ensamble.
 type Options struct {
 	XGB            bool
 	Rounds         int
@@ -40,6 +43,8 @@ type Options struct {
 	Loss    utils.LossFunc
 }
 
+// Returns a pointer to an Options structure with the default values
+// for an XGBoost multi-class classification ensamble.
 func DefaultXOptions() *Options {
 	O := new(Options)
 	O.XGB = true
@@ -57,6 +62,9 @@ func DefaultXOptions() *Options {
 	return O
 }
 
+// Returns a pointer to an Options structure with the default
+// options a for regular gradient boosting multi-class classification
+// ensamble.
 func DefaultGOptions() *Options {
 	O := new(Options)
 	O.XGB = false
@@ -69,6 +77,7 @@ func DefaultGOptions() *Options {
 	return O
 }
 
+// Returns a string representation of the options
 func (O *Options) String() string {
 	if O.XGB {
 		return fmt.Sprintf("xgboost %d r/%d md/%.3f lr/%.3f ss/%.3f bs/%.3f gam/%.3f lam/%.3f mcw/", O.Rounds, O.MaxDepth, O.LearningRate, O.SubSample, O.BaseScore, O.Gamma, O.RegLambda, O.MinChildWeight)
@@ -79,6 +88,8 @@ func (O *Options) String() string {
 
 }
 
+// Produces (and fits) a new multi-class classification boosted tree ensamble
+// It will be of xgboost type if xgboost is true, regular gradient boosting othewise.
 func NewMultiClass(D *utils.DataBunch, xgboost bool, opts ...*Options) *MultiClass {
 	var O *Options
 	if len(opts) > 0 && opts[0] != nil {
@@ -122,7 +133,6 @@ func NewMultiClass(D *utils.DataBunch, xgboost bool, opts ...*Options) *MultiCla
 			kthrawpred := utils.DenseCol(rawPred, k)
 			hess = O.Loss.Hessian(kthrawpred, nil) //keep an eye on this.
 			kthprobs := utils.DenseCol(probs, k)
-			//	fmt.Println("kthprobs", kthprobs) //////////////////////////////////////////////
 			if O.XGB {
 				tOpts = DefaultXTreeOptions()
 				tOpts.MinChildWeight = O.MinChildWeight
@@ -141,7 +151,6 @@ func NewMultiClass(D *utils.DataBunch, xgboost bool, opts ...*Options) *MultiCla
 				tOpts.MaxDepth = O.MaxDepth
 				grads = O.Loss.NegGradients(kthlabelvector, kthprobs, grads)
 				tOpts.Y = grads.RawRowView(0)
-				//	fmt.Println("Y", tOpts.Y) ////////////////////////
 				tOpts.Gradients = nil
 				tOpts.Hessian = nil
 				tree = NewTree(D.Data, tOpts)
@@ -150,7 +159,6 @@ func NewMultiClass(D *utils.DataBunch, xgboost bool, opts ...*Options) *MultiCla
 			tmpPreds = tree.Predict(D.Data, tmpPreds)
 			floats.Scale(O.LearningRate, tmpPreds)
 			utils.AddToCol(rawPred, tmpPreds, k)
-			//	fmt.Println("rawPred", rawPred) ////////////////////////
 			probs = utils.SoftMaxDense(rawPred, probs)
 			if O.Verbose {
 				fmt.Printf("round: %d, class: %d train loss = %.3f", round, k, O.Loss.Loss(kthlabelvector, mat.NewDense(0, len(tmpPreds), tmpPreds), nil))
@@ -163,6 +171,9 @@ func NewMultiClass(D *utils.DataBunch, xgboost bool, opts ...*Options) *MultiCla
 
 }
 
+// Obtains the Log of the odds for a nxm matrix
+// where each element i,j is the probability of the
+// samble i to belong to class j.
 func LogOddsFromProbs(m *mat.Dense) *mat.Dense {
 	r, c := m.Dims()
 	ret := mat.NewDense(r, c, nil)
@@ -176,6 +187,12 @@ func LogOddsFromProbs(m *mat.Dense) *mat.Dense {
 	return ret
 }
 
+// given an nxm matrix p, where n is the number of samples
+// and n is the number of classes, and each element i,j is
+// the probability of sample i of being in class j, returns
+// a nx1 column matrix where each element corresponds to the
+// most likely class for sample i (i.e., for each row, the
+// column in the original matrix with the largest value.
 func ClassesFromProbs(p *mat.Dense) *mat.Dense {
 	r, _ := p.Dims()
 	classes := mat.NewDense(r, 1, nil)
@@ -194,6 +211,9 @@ func ClassesFromProbs(p *mat.Dense) *mat.Dense {
 	return classes
 }
 
+// returns a slice with the indexes of a slice with total elements
+// totaldata that are selected for sambling with a subsamble
+// probability.
 func SubSample(totdata int, subsample float64) []int {
 	ret := make([]int, 0, int(float64(totdata)*subsample)+1)
 	for i := 0; i < totdata; i++ {
