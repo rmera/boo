@@ -27,6 +27,83 @@ func TestGTree(Te *testing.T) {
 	fmt.Println(tree.Print(""))
 }
 
+func TestSubSample(Te *testing.T) {
+	ntests := 100
+	tot := 10
+	prob := 0.5
+	var i int = 0
+	nsamples := 0
+	for i = 0; i < ntests; i++ {
+		ss := SubSample(tot, prob)
+		fmt.Println(i+1, ": samples out of total", 30, "elements", ss, len(ss))
+		nsamples += len(ss)
+	}
+	fmt.Println("sampled an average of", float64(nsamples)/float64(ntests), "From the total", tot, "samples in", ntests, "tests")
+
+}
+
+func TestColSubSampling(Te *testing.T) {
+	o := new(TreeOptions)
+	o.MinChildWeight = 1
+	o.RegLambda = 1
+	o.Gamma = 0
+	o.ColSampleByNode = 1
+	o.AllowedColumns = []int{0, 5, 6, 7}
+	o.MaxDepth = 4
+	o.Debug = true
+	data, err := utils.DataBunchFromLibSVMFile("tests/train.svm", true)
+	if err != nil {
+		Te.Error(err)
+	}
+	ohelabels, _ := data.OHELabels()
+	r, c := ohelabels.Dims()
+	rawPred := mat.NewDense(r, c, nil)
+	for k := 0; k < 3; k++ {
+		fmt.Println("New Tree!")
+		kthlabelvector := utils.DenseCol(ohelabels, k)
+		kthpreds := utils.DenseCol(rawPred, k)
+		mse := &utils.SQErrLoss{}
+		grads := mse.Gradients(kthlabelvector, kthpreds, nil)
+		hess := mse.Hessian(kthpreds, nil)
+		o.Gradients = grads.RawRowView(0)
+		o.Hessian = hess.RawRowView(0)
+		o.Y = kthlabelvector.RawRowView(0)
+		tree := NewTree(data.Data, o)
+		fmt.Println(tree.Print("", data.Keys))
+	}
+}
+
+func TestRowSubSampling(Te *testing.T) {
+	o := new(TreeOptions)
+	o.MinChildWeight = 1
+	o.RegLambda = 1
+	o.Gamma = 0
+	o.ColSampleByNode = 1
+	o.Indexes = []int{0, 5, 6, 7}
+	o.MaxDepth = 4
+	o.Debug = true
+	data, err := utils.DataBunchFromLibSVMFile("tests/train.svm", true)
+	if err != nil {
+		Te.Error(err)
+	}
+	ohelabels, _ := data.OHELabels()
+	r, c := ohelabels.Dims()
+	rawPred := mat.NewDense(r, c, nil)
+	for k := 0; k < 3; k++ {
+		fmt.Println("New Tree!")
+		kthlabelvector := utils.DenseCol(ohelabels, k)
+		kthpreds := utils.DenseCol(rawPred, k)
+		mse := &utils.SQErrLoss{}
+		grads := mse.Gradients(kthlabelvector, kthpreds, nil)
+		hess := mse.Hessian(kthpreds, nil)
+		o.Gradients = grads.RawRowView(0)
+		o.Hessian = hess.RawRowView(0)
+		o.Y = kthlabelvector.RawRowView(0)
+		tree := NewTree(data.Data, o)
+		fmt.Println(tree.Print("", data.Keys))
+	}
+}
+
 func TestXTree(Te *testing.T) {
 	o := new(TreeOptions)
 	o.MinChildWeight = 1

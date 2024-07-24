@@ -2,6 +2,7 @@ package learn
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"slices"
 	"sort"
@@ -12,6 +13,7 @@ import (
 	"gonum.org/v1/gonum/floats"
 )
 
+// A tree, both for regular gradient boosting and for xgboost
 type Tree struct {
 	id                int //only trees read from files have id
 	grads             []float64
@@ -31,18 +33,26 @@ type Tree struct {
 	branches          int
 }
 
+// TreeOptions contains the options for a particular tree
 type TreeOptions struct {
+	Debug           bool
 	XGB             bool
 	MinChildWeight  float64
-	AllowedColumns  []int //for column sub-sampling
+	AllowedColumns  []int //for column sub-sampling, by tree
 	RegLambda       float64
 	Gamma           float64
-	ColSampleByNode float64
+	ColSampleByNode float64 //not used
 	Gradients       []float64
 	Hessian         []float64
 	Y               []float64
 	MaxDepth        int
 	Indexes         []int
+}
+
+func (t *Tree) debug(o *TreeOptions, v ...any) {
+	if o.Debug {
+		log.Println(v...)
+	}
 }
 
 //move these 2 to each package
@@ -53,7 +63,6 @@ func DefaultGTreeOptions() *TreeOptions {
 
 func DefaultXTreeOptions() *TreeOptions {
 	return &TreeOptions{MinChildWeight: 1, RegLambda: 1.0, Gamma: 1.0, ColSampleByNode: 1.0, Indexes: nil, MaxDepth: 4, XGB: true}
-
 }
 
 func (T *TreeOptions) clone() *TreeOptions {
@@ -116,6 +125,7 @@ func (T *Tree) maybeInsertChildNode(o *TreeOptions) {
 		if len(o.AllowedColumns) != 0 && !slices.Contains(o.AllowedColumns, i) {
 			continue
 		}
+		T.debug(o, "Will split by (zero-based) feature", i) //
 		T.findBetterSplit(i, o)
 	}
 	if T.Leaf() {
@@ -124,8 +134,9 @@ func (T *Tree) maybeInsertChildNode(o *TreeOptions) {
 	x := utils.SampleMatrix(T.x, o.Indexes, []int{T.splitFeatureIndex})
 	indexleft := make([]int, 0, 3)
 	indexright := make([]int, 0, 3)
-
-	for i, v := range utils.TransposeFloats(x)[0] {
+	transposedFloats := utils.TransposeFloats(x)[0]
+	for i, v := range transposedFloats {
+		T.debug(o, "Will try the vector", o.Indexes[i], "of", transposedFloats) /////
 		if v <= T.threshold {
 			indexleft = append(indexleft, o.Indexes[i])
 		} else {
