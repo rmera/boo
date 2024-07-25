@@ -8,13 +8,49 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
+func TestCSV(Te *testing.T) {
+	data, err := DataBunchFromCSVFile("../tests/train.csv", true, true)
+	if err != nil {
+		Te.Error(err)
+	}
+	fmt.Println(data.String())
+	fmt.Println(data.CSV())
+	data, err = DataBunchFromCSVFile("../tests/trainnoheader.csv", false, true)
+	if err != nil {
+		Te.Error(err)
+	}
+	fmt.Println("no header", data.String())
+	data, err = DataBunchFromCSVFile("../tests/trainnolabels.csv", true, false)
+	if err != nil {
+		Te.Error(err)
+	}
+	fmt.Println("no labels", data.String())
+	data, err = DataBunchFromCSVFile("../tests/train.csv", false, true)
+	if err != nil {
+		Te.Error(err)
+	}
+	fmt.Println("bad read", data.String())
+
+}
+
 func TestLibSVM(Te *testing.T) {
-	data, err := DataBunchFromLibSVMFile("../tests/train.svm", true)
+	data, err := DataBunchFromLibSVMFile("../tests/traineasy.svm", true)
 	if err != nil {
 		Te.Error(err)
 	}
 	fmt.Println(data.String())
 	fmt.Println(data.LibSVM())
+	data, err = DataBunchFromLibSVMFile("../tests/traineasynoheader.svm", false)
+	if err != nil {
+		Te.Error(err)
+	}
+	fmt.Println("no headers", data.String())
+	data, err = DataBunchFromLibSVMFile("../tests/traineasynolabels.svm", true)
+	if err != nil {
+		Te.Error(err)
+	}
+	fmt.Println("no labels", data.String())
+
 }
 
 func TestSampleSlice(Te *testing.T) {

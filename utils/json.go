@@ -3,6 +3,7 @@ package utils
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 )
@@ -117,7 +118,7 @@ func JSONTree(t JTree, ids ...*idGiver) ([][]byte, uint, error) {
 	}
 	retstr, err := json.Marshal(ret)
 	if err != nil {
-		return nil, 0, fmt.Errorf("Error in id: %d, that has %d branches under it: %v. %v", ID, ret.Branches, err, ret)
+		return nil, 0, errors.Join(fmt.Errorf("Error in id: %d, that has %d branches under it: %v", ID, ret.Branches, ret), err)
 	}
 	rslice := [][]byte{retstr}
 	if errl != nil {

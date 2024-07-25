@@ -10,10 +10,6 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-//func UpdateCols(m *mat.Dense, s []float64) {
-
-//}
-
 //utils
 
 // takes a sub-matrix of m, consisting in its rows with indexes present in rowIndexes and the
@@ -224,7 +220,6 @@ func (m *MSELoss) NegGradients(yohelabels, probabilities, results *mat.Dense) *m
 		r, c := yohelabels.Dims()
 		results = mat.NewDense(r, c, nil)
 	}
-	//fmt.Println("labels,probs", yohelabels, probabilities) /////////////////////////////////////
 	results.Sub(yohelabels, probabilities)
 	return results
 }

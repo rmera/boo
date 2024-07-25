@@ -92,7 +92,6 @@ func CrossValidationSamples(data *DataBunch, nfold int, usecopies ...bool) (int,
 	}
 	folds = fillRemaining(folds, tot) //since tot/nf might leave some samples behind,  those samples, if any, are
 	//rescued here and added to the last fold.
-	//	fmt.Println("final folds", folds) ///////////////////////////////////////
 
 	calls := 0
 	ret := func() (*DataBunch, *DataBunch) {

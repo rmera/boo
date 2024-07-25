@@ -139,7 +139,8 @@ func svmliberror(err error, linenu int, line string) error {
 }
 
 // reads a libSVM-formatted file and returns a DataBunch. It's a pretty poor reader right now
-// as it doesn't support sparse-libSVM files.
+// as it doesn't support sparse-libSVM files. The file has to have missing data points explitly (say, set to 0)
+// and it needs to have labels.
 func DataBunchFromLibSVMFile(filename string, hasHeader ...bool) (*DataBunch, error) {
 	hasaheader := false
 	if len(hasHeader) > 0 {
