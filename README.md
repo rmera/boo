@@ -6,8 +6,8 @@ There is a bug in the regular gradient boosting implementation. Please dont' use
 
 ## Introduction
 
-chemLearn is a simple library that implements simple versions of gradient boosting
-and [XGBoost](https://github.com/dmlc/xgboost) ([reference](https://arxiv.org/abs/1603.02754)) for classification, in pure Go. 
+chemLearn is a library that implements a simplified versions of gradient boosting
+and [extreme gradient boosting](https://github.com/dmlc/xgboost) ([reference](https://arxiv.org/abs/1603.02754)) for classification, in pure Go. 
 
 The goal is for chemLearn to become a part of goChem when its mature enough, hence the name. Still, there is nothing specific about Chemistry in the library.
 
@@ -22,7 +22,7 @@ The goal is for chemLearn to become a part of goChem when its mature enough, hen
 * The library can serialize models in JSON format, and recover them. 
 
 * Some facilities, such as cross-validation and file-reading (a _very_ naive/incomplete)
-reader for the libSVM format), are provided.
+reader for the libSVM format, and a reader for the CSV format), are provided.
 
 * The cross-validation grid search for the hyperparameters can run in parallel
 
@@ -43,7 +43,7 @@ Many of these reflect the fact that I mostly work with rather small, dense datas
 
 * There are only exact trees, and no sparsity-awareness.
 * In general, computational performance is not a priority for this project, at least for now. 
-* As mentioned above, the libSVM reading support is very basic, and there is no other file-format supported (such as csv). 
+* As mentioned above, the libSVM reading support is very basic. 
 * Only classification is supported. Still, since its  multi-class classification using one-hot-encoding, and the "activation function" (softmax by default) can be changed, I suspect you can trick the function into doing regression by giving one class and an activation function that does nothing.
 * There is nothing to deal with missing features in the samples.
 * Tests could be (and are being) improved.
