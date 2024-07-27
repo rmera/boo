@@ -82,7 +82,7 @@ func DefaultGOptions() *Options {
 // Returns a string representation of the options
 func (O *Options) String() string {
 	if O.XGB {
-		return fmt.Sprintf("xgboost %d r/%d md/%.3f lr/%.3f ss/%.3f bs/%.3f gam/%.3f lam/%.3f mcw/", O.Rounds, O.MaxDepth, O.LearningRate, O.SubSample, O.BaseScore, O.Gamma, O.RegLambda, O.MinChildWeight)
+		return fmt.Sprintf("xgboost %d r/%d md/%.3f lr/%.3f ss/%.3f bs/%.3f gam/%.3f lam/%.3f mcw/%.3f css", O.Rounds, O.MaxDepth, O.LearningRate, O.SubSample, O.BaseScore, O.Gamma, O.RegLambda, O.MinChildWeight, O.ColSubSample)
 	} else {
 		return fmt.Sprintf("gboost %d r/%d md/%.3f lr", O.Rounds, O.MaxDepth, O.LearningRate)
 
