@@ -1,9 +1,5 @@
 # Gradient-boosting learning for multi-class classification.
 
-## Important note: 
-
-There is a bug in the regular gradient boosting implementation. Please dont' use it as long as this note is up. The XGBoost implementation is not affected.
-
 ## Introduction
 
 chemLearn is a library that implements a simplified versions of gradient boosting
