@@ -32,7 +32,6 @@ func TestGTree(Te *testing.T) {
 	for _, v := range jtree {
 		fmt.Println(string(v))
 	}
-
 }
 
 func TestSubSample(Te *testing.T) {
@@ -145,9 +144,7 @@ func TestXTree(Te *testing.T) {
 		for _, v := range jtree {
 			fmt.Println(string(v))
 		}
-
 	}
-
 }
 
 func TestXGBoost(Te *testing.T) {
@@ -166,7 +163,7 @@ func TestXGBoost(Te *testing.T) {
 	O.TreeMethod = "exact"
 	O.Loss = &utils.SQErrLoss{}
 
-	boosted := NewMultiClass(data, true, O)
+	boosted := NewMultiClass(data, O)
 	fmt.Println("train set accuracy", boosted.Accuracy(data))
 }
 
@@ -176,7 +173,7 @@ func TestGBoost(Te *testing.T) {
 		Te.Error(err)
 	}
 	o := DefaultGOptions()
-	boosted := NewMultiClass(data, false, o)
+	boosted := NewMultiClass(data, o)
 	fmt.Println("test set accuracy", boosted.Accuracy(data))
 	jtest := newjsonTester()
 	JSONMultiClass(boosted, "softmaxDense", jtest)
@@ -184,7 +181,6 @@ func TestGBoost(Te *testing.T) {
 	for _, v := range strs {
 		fmt.Println(v)
 	}
-
 }
 
 func TestXJSON(Te *testing.T) {
@@ -199,17 +195,16 @@ func TestXJSON(Te *testing.T) {
 	O.BaseScore = 0.5
 	O.TreeMethod = "exact"
 	O.Loss = &utils.SQErrLoss{}
-
 	data, err := utils.DataBunchFromLibSVMFile("tests/train.svm", true)
 	if err != nil {
 		Te.Error(err)
 	}
-	acc, err := MultiClassCrossValidation(data, 5, true, &CVOptions{O: O, Conc: false})
+	acc, err := MultiClassCrossValidation(data, 5, &CVOptions{O: O, Conc: false})
 	if err != nil {
 		Te.Error(err)
 	}
 	fmt.Println("Crossvalidation accuracy:", acc)
-	boosted := NewMultiClass(data, true, O)
+	boosted := NewMultiClass(data, O)
 	fmt.Println("train set accuracy", boosted.Accuracy(data))
 	os.Remove("tests/xgbmodel.json")
 	f, err := os.Create("tests/xgbmodel.json")
@@ -249,12 +244,12 @@ func TestGJSON(Te *testing.T) {
 	if err != nil {
 		Te.Error(err)
 	}
-	acc, err := MultiClassCrossValidation(data, 5, false, &CVOptions{O: O, Conc: false})
+	acc, err := MultiClassCrossValidation(data, 5, &CVOptions{O: O, Conc: false})
 	if err != nil {
 		Te.Error(err)
 	}
 	fmt.Println("Crossvalidation accuracy:", acc)
-	boosted := NewMultiClass(data, false, O)
+	boosted := NewMultiClass(data, O)
 	fmt.Println("train set accuracy", boosted.Accuracy(data))
 	os.Remove("tests/gbmodel.json")
 	f, err := os.Create("tests/gbmodel.json")
@@ -304,17 +299,12 @@ func TestCrossValXBoost(Te *testing.T) {
 	O.BaseScore = 0.5
 	O.TreeMethod = "exact"
 	O.Loss = &utils.SQErrLoss{}
-
 	//87%, 50 r/3 md/0.200 lr/0.900 ss/0.500 bs/0.100 gam/1.100 lam/2.000 mcw/
-
-	acc, err := MultiClassCrossValidation(data, 8, true, &CVOptions{O: O, Conc: false})
-
+	acc, err := MultiClassCrossValidation(data, 8, &CVOptions{O: O, Conc: false})
 	fmt.Println("Crossvalidation best accuracy:", acc)
-
-	b := NewMultiClass(data, true, O)
+	b := NewMultiClass(data, O)
 	acc = b.Accuracy(testdata)
 	fmt.Printf("Test accuracy: %.3f\n", acc)
-
 }
 
 func TestCrossValGBoost(Te *testing.T) {
@@ -322,12 +312,10 @@ func TestCrossValGBoost(Te *testing.T) {
 	if err != nil {
 		Te.Error(err)
 	}
-
 	testdata, err := utils.DataBunchFromLibSVMFile("tests/test.svm", true)
 	if err != nil {
 		Te.Error(err)
 	}
-
 	O := new(Options)
 	O.XGB = false
 	O.Rounds = 50
@@ -338,17 +326,12 @@ func TestCrossValGBoost(Te *testing.T) {
 	O.TreeMethod = "exact"
 	O.Loss = &utils.MSELoss{}
 	cv := &CVOptions{O: O, Conc: false}
-
 	//87%, 50 r/3 md/0.200 lr/0.900 ss/0.500 bs/0.100 gam/1.100 lam/2.000 mcw/
-
-	acc, err := MultiClassCrossValidation(data, 8, false, cv)
-
+	acc, err := MultiClassCrossValidation(data, 8, cv)
 	fmt.Println("Crossvalidation best accuracy:", acc)
-
-	b := NewMultiClass(data, false, O)
+	b := NewMultiClass(data, O)
 	acc = b.Accuracy(testdata)
 	fmt.Printf("Test accuracy: %.3f\n", acc)
-
 }
 
 func TestCrossValXGBoostGrid(Te *testing.T) {
@@ -356,12 +339,10 @@ func TestCrossValXGBoostGrid(Te *testing.T) {
 	if err != nil {
 		Te.Error(err)
 	}
-
 	testdata, err := utils.DataBunchFromLibSVMFile("tests/test.svm", true)
 	if err != nil {
 		Te.Error(err)
 	}
-
 	o := DefaultXCVGridOptions()
 	o.Rounds = [3]int{5, 10, 5}
 	o.MaxDepth = [3]int{3, 5, 1}
@@ -370,8 +351,7 @@ func TestCrossValXGBoostGrid(Te *testing.T) {
 	o.MinChildWeight = [3]float64{2, 6, 2}
 	o.Verbose = true
 	o.NCPUs = 2
-
-	bestacc, accuracies, best, err := ConcCVGrid(data, 8, true, o)
+	bestacc, accuracies, best, err := ConcCVGrid(data, 8, o)
 	if err != nil {
 		Te.Error(err)
 	}
@@ -379,10 +359,9 @@ func TestCrossValXGBoostGrid(Te *testing.T) {
 	fmt.Printf("With %d rounds, %d maxdepth and %.3f learning rate\n", best.Rounds, best.MaxDepth, best.LearningRate)
 	fmt.Println("All accuracies:", accuracies)
 
-	b := NewMultiClass(data, true, best)
+	b := NewMultiClass(data, best)
 	acc := b.Accuracy(testdata)
 	fmt.Printf("Test accuracy: %.3f\n", acc)
-
 }
 
 func TestConcCrossValGGBoostGrid(Te *testing.T) {
@@ -390,12 +369,10 @@ func TestConcCrossValGGBoostGrid(Te *testing.T) {
 	if err != nil {
 		Te.Error(err)
 	}
-
 	testdata, err := utils.DataBunchFromLibSVMFile("tests/test.svm", true)
 	if err != nil {
 		Te.Error(err)
 	}
-
 	o := DefaultGCVGridOptions()
 	o.Rounds = [3]int{5, 10, 5}
 	o.MaxDepth = [3]int{3, 5, 1}
@@ -403,8 +380,7 @@ func TestConcCrossValGGBoostGrid(Te *testing.T) {
 	o.MinChildWeight = [3]float64{2, 6, 2}
 	o.Verbose = true
 	o.NCPUs = 2
-
-	bestacc, accuracies, best, err := ConcCVGrid(data, 8, false, o)
+	bestacc, accuracies, best, err := ConcCVGrid(data, 8, o)
 	if err != nil {
 		Te.Error(err)
 	}
@@ -412,10 +388,9 @@ func TestConcCrossValGGBoostGrid(Te *testing.T) {
 	fmt.Printf("With %d rounds, %d maxdepth and %.3f learning rate\n", best.Rounds, best.MaxDepth, best.LearningRate)
 	fmt.Println("All accuracies:", accuracies)
 
-	b := NewMultiClass(data, false, best)
+	b := NewMultiClass(data, best)
 	acc := b.Accuracy(testdata)
 	fmt.Printf("Test accuracy: %.3f\n", acc)
-
 }
 
 func TestFeatures(Te *testing.T) {
@@ -424,11 +399,11 @@ func TestFeatures(Te *testing.T) {
 	if err != nil {
 		Te.Error(err)
 	}
-	acc, err := MultiClassCrossValidation(data, 5, true, &CVOptions{O: O, Conc: false})
+	acc, err := MultiClassCrossValidation(data, 5, &CVOptions{O: O, Conc: false})
 	if err != nil {
 		Te.Error(err)
 	}
-	b := NewMultiClass(data, true, O)
+	b := NewMultiClass(data, O)
 	acc = b.Accuracy(data)
 	fmt.Printf("Train accuracy: %.3f\n", acc)
 	feat, err := b.FeatureImportance()
@@ -438,11 +413,11 @@ func TestFeatures(Te *testing.T) {
 	fmt.Println("XGBoost:\n", feat.String())
 
 	O = DefaultGOptions()
-	acc, err = MultiClassCrossValidation(data, 5, false, &CVOptions{O: O, Conc: false})
+	acc, err = MultiClassCrossValidation(data, 5, &CVOptions{O: O, Conc: false})
 	if err != nil {
 		Te.Error(err)
 	}
-	b = NewMultiClass(data, false, O)
+	b = NewMultiClass(data, O)
 	acc = b.Accuracy(data)
 	fmt.Printf("Train accuracy: %.3f\n", acc)
 	feat, err = b.FeatureImportance()
@@ -450,5 +425,4 @@ func TestFeatures(Te *testing.T) {
 		Te.Error(err)
 	}
 	fmt.Println("GBoost:\n", feat.String())
-
 }

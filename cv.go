@@ -7,7 +7,7 @@ import (
 	"github.com/rmera/chemlearn/utils"
 )
 
-func MultiClassCrossValidation(D *utils.DataBunch, nfold int, xgboost bool, opts *CVOptions) (float64, error) {
+func MultiClassCrossValidation(D *utils.DataBunch, nfold int, opts *CVOptions) (float64, error) {
 	var accus float64
 	n, sampler, err := utils.CrossValidationSamples(D, nfold, true)
 	if err != nil {
@@ -25,9 +25,9 @@ func MultiClassCrossValidation(D *utils.DataBunch, nfold int, xgboost bool, opts
 		var b *MultiClass
 		train, test := sampler()
 		if opts.O == nil {
-			b = NewMultiClass(train, xgboost)
+			b = NewMultiClass(train)
 		} else {
-			b = NewMultiClass(train, xgboost, opts.O)
+			b = NewMultiClass(train, opts.O)
 		}
 		a := b.Accuracy(test)
 		accus += a
@@ -96,6 +96,10 @@ func DefaultXCVGridOptions() *CVGridOptions {
 	return ret
 }
 
+func DefaultCVGridOptions() *CVGridOptions {
+	return DefaultXCVGridOptions()
+}
+
 type CVOptions struct {
 	O     *Options
 	Conc  bool
@@ -104,21 +108,15 @@ type CVOptions struct {
 	err   chan error
 }
 
-func ConcCVGrid(data *utils.DataBunch, nfold int, xgboost bool, options ...*CVGridOptions) (float64, []float64, *Options, error) {
+func ConcCVGrid(data *utils.DataBunch, nfold int, options ...*CVGridOptions) (float64, []float64, *Options, error) {
 	var o *CVGridOptions
 	if len(options) > 0 && options[0] != nil {
 		o = options[0]
 	} else {
-		if xgboost {
-			o = DefaultXCVGridOptions()
-
-		} else {
-			o = DefaultGCVGridOptions()
-		}
+		o = DefaultXCVGridOptions()
 	}
-	o.XGB = xgboost //just in case
 	defaultoptions := DefaultGOptions
-	if xgboost {
+	if o.XGB {
 		defaultoptions = DefaultXOptions
 	}
 	var finaloptions *Options
@@ -134,7 +132,6 @@ func ConcCVGrid(data *utils.DataBunch, nfold int, xgboost bool, options ...*CVGr
 		os[i] = make(chan *Options)
 	}
 	//welcome to nested-hell. Sorry.
-
 	cpus := 0
 	for cw := o.MinChildWeight[0]; cw <= o.MinChildWeight[1]; cw += o.MinChildWeight[2] {
 		for rounds := o.Rounds[0]; rounds <= o.Rounds[1]; rounds += o.Rounds[2] {
@@ -154,8 +151,9 @@ func ConcCVGrid(data *utils.DataBunch, nfold int, xgboost bool, options ...*CVGr
 									t.Gamma = gam
 									t.SubSample = ss
 									t.MinChildWeight = cw
+									t.XGB = o.XGB
 									conc := &CVOptions{O: t, acc: accs[cpus], err: errs[cpus], ochan: os[cpus], Conc: true}
-									go MultiClassCrossValidation(data, nfold, xgboost, conc)
+									go MultiClassCrossValidation(data, nfold, conc)
 									cpus++
 									if cpus == o.NCPUs {
 										var err error

@@ -90,20 +90,19 @@ func (O *Options) String() string {
 
 }
 
+func DefaultOptions() *Options {
+	return DefaultXOptions()
+}
+
 // Produces (and fits) a new multi-class classification boosted tree ensamble
 // It will be of xgboost type if xgboost is true, regular gradient boosting othewise.
-func NewMultiClass(D *utils.DataBunch, xgboost bool, opts ...*Options) *MultiClass {
+func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 	var O *Options
 	if len(opts) > 0 && opts[0] != nil {
 		O = opts[0]
 	} else {
-		if xgboost {
-			O = DefaultXOptions()
-		} else {
-			O = DefaultGOptions()
-		}
+		O = DefaultXOptions()
 	}
-	O.XGB = xgboost
 	ohelabels, differentlabels := D.OHELabels()
 	nlabels := len(differentlabels)
 	boosters := make([][]*Tree, 0, nlabels)
@@ -121,10 +120,10 @@ func NewMultiClass(D *utils.DataBunch, xgboost bool, opts ...*Options) *MultiCla
 	tmpPreds := make([]float64, r)
 	for round := 0; round < O.Rounds; round++ {
 		var sampleIndexes, sampleCols []int
-		if O.SubSample < 1 && xgboost {
+		if O.SubSample < 1 && O.XGB {
 			sampleIndexes = SubSample(len(D.Data), O.SubSample)
 		}
-		if O.ColSubSample < 1 && xgboost {
+		if O.ColSubSample < 1 && O.XGB {
 			sampleCols = SubSample(len(D.Data[0]), O.ColSubSample)
 		}
 		if len(sampleIndexes) < O.MinSample {
