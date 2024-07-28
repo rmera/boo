@@ -11,7 +11,7 @@ import (
 )
 
 func TestGTree(Te *testing.T) {
-	data, err := utils.DataBunchFromLibSVMFile("tests/train.svm", true)
+	data, err := utils.DataBunchFromLibSVMFile("tests/traineasy.svm", true)
 	if err != nil {
 		Te.Error(err)
 	}
@@ -25,6 +25,14 @@ func TestGTree(Te *testing.T) {
 	tree := NewTree(data.Data, opts)
 	fmt.Println("predictions", tree.Predict(data.Data, nil))
 	fmt.Println(tree.Print(""))
+	jtree, _, err := utils.JSONTree(tree)
+	if err != nil {
+		Te.Error(err)
+	}
+	for _, v := range jtree {
+		fmt.Println(string(v))
+	}
+
 }
 
 func TestSubSample(Te *testing.T) {
@@ -130,7 +138,16 @@ func TestXTree(Te *testing.T) {
 		o.Y = kthlabelvector.RawRowView(0)
 		tree := NewTree(data.Data, o)
 		fmt.Println(tree.Print("", data.Keys))
+		jtree, _, err := utils.JSONTree(tree)
+		if err != nil {
+			Te.Error(err)
+		}
+		for _, v := range jtree {
+			fmt.Println(string(v))
+		}
+
 	}
+
 }
 
 func TestXGBoost(Te *testing.T) {
@@ -161,6 +178,13 @@ func TestGBoost(Te *testing.T) {
 	o := DefaultGOptions()
 	boosted := NewMultiClass(data, false, o)
 	fmt.Println("test set accuracy", boosted.Accuracy(data))
+	jtest := newjsonTester()
+	JSONMultiClass(boosted, "softmaxDense", jtest)
+	strs := jtest.Str
+	for _, v := range strs {
+		fmt.Println(v)
+	}
+
 }
 
 func TestXJSON(Te *testing.T) {

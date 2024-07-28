@@ -16,6 +16,20 @@ type writestringer interface {
 	WriteString(string) (int, error)
 }
 
+type jsonTester struct {
+	Str []string
+}
+
+func newjsonTester() *jsonTester {
+	j := new(jsonTester)
+	j.Str = make([]string, 0, 10)
+	return j
+}
+func (j *jsonTester) WriteString(w string) (int, error) {
+	j.Str = append(j.Str, w)
+	return 0, nil
+}
+
 var ProbTransformMap map[string]func(*mat.Dense, *mat.Dense) *mat.Dense = map[string]func(*mat.Dense, *mat.Dense) *mat.Dense{
 	"softmax": utils.SoftMaxDense,
 }
@@ -79,8 +93,11 @@ func UnJSONMultiClass(r *bufio.Reader) (*MultiClass, error) {
 	return ret, nil
 }
 
-func JSONMultiClass(m *MultiClass, probtransformname string, w writestringer) error {
-	j, err := MarshalMCMetaData(m, probtransformname)
+// Marshals a multi-class classifier to JSON. probtransformname is the name of the activation
+// function, normally, "softmax", w is any object with a WriteString(string)(int,error)
+// method, normally, a *bufio.Writer.
+func JSONMultiClass(m *MultiClass, activationfunctionname string, w writestringer) error {
+	j, err := MarshalMCMetaData(m, activationfunctionname)
 	if err != nil {
 		return err
 	}
@@ -135,7 +152,7 @@ func MarshalMCMetaData(m *MultiClass, probtransformname string) ([]byte, error) 
 
 func (t *Tree) JNode(id uint) *utils.JSONNode {
 	bs := t.bestScoreSoFar
-	//	fmt.Println(t.xgb) ///////////////////////////////
+	fmt.Println(bs, t.bestScoreSoFar) ///////////////////////////////
 	if t.Leaf() && !t.xgb {
 		bs = 0.1189998819991197253
 	}
