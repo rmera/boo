@@ -31,7 +31,7 @@ type Options struct {
 	Rounds         int
 	MaxDepth       int
 	LearningRate   float64
-	RegLambda      float64
+	Lambda         float64
 	MinChildWeight float64
 	Gamma          float64
 	SubSample      float64
@@ -52,8 +52,9 @@ func DefaultXOptions() *Options {
 	O.Rounds = 20
 	O.SubSample = 0.8
 	O.ColSubSample = 0.8
-	O.RegLambda = 1.5
+	O.Lambda = 1.5
 	O.MinChildWeight = 3
+	O.Gamma = 0.2
 	O.MaxDepth = 5
 	O.LearningRate = 0.3
 	O.BaseScore = 0.5
@@ -62,6 +63,26 @@ func DefaultXOptions() *Options {
 	O.Verbose = false //just for clarity
 	O.MinSample = 5
 	return O
+}
+
+func (o *Options) Clone() *Options {
+	O := new(Options)
+	O.XGB = o.XGB
+	O.Rounds = o.Rounds
+	O.SubSample = o.SubSample
+	O.ColSubSample = o.ColSubSample
+	O.Lambda = o.Lambda
+	O.MinChildWeight = o.MinChildWeight
+	O.Gamma = o.Gamma
+	O.MaxDepth = o.MaxDepth
+	O.LearningRate = o.LearningRate
+	O.BaseScore = o.BaseScore
+	O.TreeMethod = "exact"
+	O.Loss = o.Loss
+	O.Verbose = o.Verbose
+	O.MinSample = o.MinSample
+	return O
+
 }
 
 // Returns a pointer to an Options structure with the default
@@ -82,7 +103,7 @@ func DefaultGOptions() *Options {
 // Returns a string representation of the options
 func (O *Options) String() string {
 	if O.XGB {
-		return fmt.Sprintf("xgboost %d r/%d md/%.3f lr/%.3f ss/%.3f bs/%.3f gam/%.3f lam/%.3f mcw/%.3f css", O.Rounds, O.MaxDepth, O.LearningRate, O.SubSample, O.BaseScore, O.Gamma, O.RegLambda, O.MinChildWeight, O.ColSubSample)
+		return fmt.Sprintf("xgboost %d r/%d md/%.3f lr/%.3f ss/%.3f bs/%.3f gam/%.3f lam/%.3f mcw/%.3f css", O.Rounds, O.MaxDepth, O.LearningRate, O.SubSample, O.BaseScore, O.Gamma, O.Lambda, O.MinChildWeight, O.ColSubSample)
 	} else {
 		return fmt.Sprintf("gboost %d r/%d md/%.3f lr/%.3f mcw", O.Rounds, O.MaxDepth, O.LearningRate, O.MinChildWeight)
 
@@ -141,7 +162,7 @@ func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 				tOpts.MinChildWeight = O.MinChildWeight
 				tOpts.MaxDepth = O.MaxDepth
 				grads = O.Loss.Gradients(kthlabelvector, kthprobs, grads)
-				tOpts.RegLambda = O.RegLambda
+				tOpts.Lambda = O.Lambda
 				tOpts.Gamma = O.Gamma
 				tOpts.Indexes = sampleIndexes
 				tOpts.AllowedColumns = sampleCols

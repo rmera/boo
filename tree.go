@@ -39,7 +39,7 @@ type TreeOptions struct {
 	XGB             bool
 	MinChildWeight  float64
 	AllowedColumns  []int //for column sub-sampling, by tree
-	RegLambda       float64
+	Lambda          float64
 	Gamma           float64
 	ColSampleByNode float64 //not used
 	Gradients       []float64
@@ -62,7 +62,7 @@ func DefaultGTreeOptions() *TreeOptions {
 }
 
 func DefaultXTreeOptions() *TreeOptions {
-	return &TreeOptions{MinChildWeight: 1, RegLambda: 1.0, Gamma: 1.0, ColSampleByNode: 1.0, Indexes: nil, MaxDepth: 4, XGB: true}
+	return &TreeOptions{MinChildWeight: 1, Lambda: 1.0, Gamma: 1.0, ColSampleByNode: 1.0, Indexes: nil, MaxDepth: 4, XGB: true}
 }
 
 func (T *TreeOptions) clone() *TreeOptions {
@@ -72,7 +72,7 @@ func (T *TreeOptions) clone() *TreeOptions {
 	ret.Hessian = T.Hessian
 	ret.Y = T.Y
 	ret.MinChildWeight = T.MinChildWeight
-	ret.RegLambda = T.RegLambda
+	ret.Lambda = T.Lambda
 	ret.Gamma = T.Gamma
 	ret.ColSampleByNode = T.ColSampleByNode
 	ret.MaxDepth = T.MaxDepth
@@ -101,7 +101,7 @@ func NewTree(X [][]float64, o *TreeOptions) *Tree {
 	ret.hess = o.Hessian
 	ret.y = o.Y
 	if ret.xgb {
-		ret.value = -1 * floats.Sum(utils.SampleSlice(ret.grads, o.Indexes)) / (floats.Sum(utils.SampleSlice(ret.hess, o.Indexes)) + o.RegLambda) //eq 5
+		ret.value = -1 * floats.Sum(utils.SampleSlice(ret.grads, o.Indexes)) / (floats.Sum(utils.SampleSlice(ret.hess, o.Indexes)) + o.Lambda) //eq 5
 		ret.bestScoreSoFar = 0.0
 	} else {
 		ret.bestScoreSoFar = math.Inf(1)
@@ -201,7 +201,7 @@ func (T *Tree) findBetterSplit(featureIndex int, o *TreeOptions) {
 			if nright < int(o.MinChildWeight) {
 				break
 			}
-			gain = 0.5*((sq(sumgLeft)/(sumhLeft+o.RegLambda))+(sq(sumgRight)/(sumhRight+o.RegLambda))-(sq(sumg)/(sumh+o.RegLambda))) - (o.Gamma / 2) // Eq(7) in the xgboost paper
+			gain = 0.5*((sq(sumgLeft)/(sumhLeft+o.Lambda))+(sq(sumgRight)/(sumhRight+o.Lambda))-(sq(sumg)/(sumh+o.Lambda))) - (o.Gamma / 2) // Eq(7) in the xgboost paper
 			//in eq 7 ,gamma is NOT divided by 2. Check!
 			criterion = func() bool { return gain > T.bestScoreSoFar }
 

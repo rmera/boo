@@ -13,9 +13,9 @@ func MultiClassCrossValidation(D *utils.DataBunch, nfold int, opts *CVOptions) (
 	if err != nil {
 		if n == 0 {
 			if opts.Conc {
-				opts.err <- err
-				opts.acc <- -1
-				opts.ochan <- nil
+				opts.Err <- err
+				opts.Acc <- -1
+				opts.Ochan <- nil
 			}
 			return 0, err
 		}
@@ -33,9 +33,9 @@ func MultiClassCrossValidation(D *utils.DataBunch, nfold int, opts *CVOptions) (
 		accus += a
 	}
 	if opts.Conc {
-		opts.err <- nil
-		opts.acc <- accus / float64(n)
-		opts.ochan <- opts.O
+		opts.Err <- nil
+		opts.Acc <- accus / float64(n)
+		opts.Ochan <- opts.O
 	}
 	return accus / float64(n), nil
 
@@ -52,7 +52,11 @@ type CVGridOptions struct {
 	SubSample      [3]float64
 	ColSubSample   [3]float64
 	MinChildWeight [3]float64
+	Step           float64
+	DeltaFraction  float64
 	Verbose        bool
+	NSteps         int
+	Central        bool
 	NCPUs          int
 }
 
@@ -91,6 +95,11 @@ func DefaultXCVGridOptions() *CVGridOptions {
 	ret.SubSample = [3]float64{0.6, 0.9, 0.1}
 	ret.ColSubSample = [3]float64{0.6, 0.9, 0.1}
 	ret.MinChildWeight = [3]float64{3, 5, 1}
+	ret.Step = 0.1
+	ret.DeltaFraction = 0.05
+	ret.NSteps = 6
+	ret.Central = true
+
 	ret.Verbose = false
 	ret.NCPUs = 1
 	return ret
@@ -103,9 +112,9 @@ func DefaultCVGridOptions() *CVGridOptions {
 type CVOptions struct {
 	O     *Options
 	Conc  bool
-	acc   chan float64
-	ochan chan *Options
-	err   chan error
+	Acc   chan float64
+	Ochan chan *Options
+	Err   chan error
 }
 
 func ConcCVGrid(data *utils.DataBunch, nfold int, options ...*CVGridOptions) (float64, []float64, *Options, error) {
@@ -147,12 +156,12 @@ func ConcCVGrid(data *utils.DataBunch, nfold int, options ...*CVGridOptions) (fl
 									t.LearningRate = lr
 									t.MaxDepth = md
 									t.Rounds = rounds
-									t.RegLambda = lam
+									t.Lambda = lam
 									t.Gamma = gam
 									t.SubSample = ss
 									t.MinChildWeight = cw
 									t.XGB = o.XGB
-									conc := &CVOptions{O: t, acc: accs[cpus], err: errs[cpus], ochan: os[cpus], Conc: true}
+									conc := &CVOptions{O: t, Acc: accs[cpus], Err: errs[cpus], Ochan: os[cpus], Conc: true}
 									go MultiClassCrossValidation(data, nfold, conc)
 									cpus++
 									if cpus == o.NCPUs {
@@ -181,12 +190,18 @@ func rescueConcValues(errors []chan error, accs []chan float64, opts []chan *Opt
 	var err error
 	var tmpacc float64
 	var tmpop *Options
+	println("called") ///////////////
 	for i, v := range errors {
 		err = <-v
 		if err != nil {
+			println("wwiiiiias") /////////
 			return -1, nil, err
 		}
 		tmpacc = <-accs[i]
+		println("ACCURACY:", tmpacc) ////////////////////////////////////
+		if tmpacc < 0 {
+			return -1, nil, fmt.Errorf("grads zero") //not a real error, just that the optimizatio is over.
+		}
 		tmpop = <-opts[i]
 		if tmpacc > bestacc {
 			bestacc = tmpacc
@@ -200,57 +215,3 @@ func rescueConcValues(errors []chan error, accs []chan float64, opts []chan *Opt
 	return bestacc, bestop, nil
 
 }
-
-/*
-func CVGrid(data *utils.DataBunch, nfold int, verbose bool, options ...*CVGridOptions) (float64, []float64, *Options, error) {
-	var o *CVGridOptions
-	if len(options) > 0 && options[0] != nil {
-		o = options[0]
-	} else {
-		o = DefaultCVGridOptions()
-	}
-	var finaloptions *Options
-	accuracies := make([]float64, 0, 100)
-	bestacc := 0.0
-	//welcome to nested-hell. Sorry.
-	for cw := o.MinChildWeight[0]; cw <= o.MinChildWeight[1]; cw += o.MinChildWeight[2] {
-		for rounds := o.Rounds[0]; rounds <= o.Rounds[1]; rounds += o.Rounds[2] {
-			for md := o.MaxDepth[0]; md <= o.MaxDepth[1]; md += o.MaxDepth[2] {
-				for lr := o.LearningRate[0]; lr <= o.LearningRate[1]; lr += o.LearningRate[2] {
-					for lam := o.Lambda[0]; lam <= o.Lambda[1]; lam += o.Lambda[2] {
-						for gam := o.Gamma[0]; gam <= o.Gamma[1]; gam += o.Gamma[2] {
-							for ss := o.SubSample[0]; ss <= o.SubSample[1]; ss += o.SubSample[2] {
-
-								t := DefaultOptions()
-								t.LearningRate = lr
-								t.MaxDepth = md
-								t.Rounds = rounds
-								t.RegLambda = lam
-								t.Gamma = gam
-								t.SubSample = ss
-								t.MinChildWeight = cw
-								acc, err := MultiClassCrossValidation(data, nfold, t)
-								if err != nil {
-									return 0, nil, nil, err
-								}
-								accuracies = append(accuracies, acc)
-								if acc > bestacc {
-									if verbose {
-										fmt.Printf("New Best Accuracy %.0f%%, %s\n", acc, t.String())
-									}
-									finaloptions = t
-									bestacc = acc
-								}
-
-							}
-						}
-
-					}
-				}
-			}
-		}
-	}
-	return bestacc, accuracies, finaloptions, nil
-}
-
-*/
