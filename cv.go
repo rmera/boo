@@ -147,7 +147,7 @@ func ConcCVGrid(data *utils.DataBunch, nfold int, options ...*CVGridOptions) (fl
 									t.LearningRate = lr
 									t.MaxDepth = md
 									t.Rounds = rounds
-									t.RegLambda = lam
+									t.Lambda = lam
 									t.Gamma = gam
 									t.SubSample = ss
 									t.MinChildWeight = cw
@@ -225,7 +225,7 @@ func CVGrid(data *utils.DataBunch, nfold int, verbose bool, options ...*CVGridOp
 								t.LearningRate = lr
 								t.MaxDepth = md
 								t.Rounds = rounds
-								t.RegLambda = lam
+								t.Lambda = lam
 								t.Gamma = gam
 								t.SubSample = ss
 								t.MinChildWeight = cw

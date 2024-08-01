@@ -52,7 +52,7 @@ func TestSubSample(Te *testing.T) {
 func TestColSubSampling(Te *testing.T) {
 	o := new(TreeOptions)
 	o.MinChildWeight = 1
-	o.RegLambda = 1
+	o.Lambda = 1
 	o.Gamma = 0
 	o.ColSampleByNode = 1
 	o.AllowedColumns = []int{0, 5, 6, 7}
@@ -83,7 +83,7 @@ func TestColSubSampling(Te *testing.T) {
 func TestRowSubSampling(Te *testing.T) {
 	o := new(TreeOptions)
 	o.MinChildWeight = 1
-	o.RegLambda = 1
+	o.Lambda = 1
 	o.Gamma = 0
 	o.ColSampleByNode = 1
 	o.Indexes = []int{0, 5, 6, 7}
@@ -114,7 +114,7 @@ func TestRowSubSampling(Te *testing.T) {
 func TestXTree(Te *testing.T) {
 	o := new(TreeOptions)
 	o.MinChildWeight = 1
-	o.RegLambda = 1
+	o.Lambda = 1
 	o.Gamma = 0
 	o.ColSampleByNode = 1
 	o.MaxDepth = 3
@@ -155,7 +155,7 @@ func TestXGBoost(Te *testing.T) {
 	O := new(Options)
 	O.Rounds = 500
 	O.SubSample = 0.8
-	O.RegLambda = 1.5
+	O.Lambda = 1.5
 	O.MinChildWeight = 3
 	O.MaxDepth = 3
 	O.LearningRate = 0.3
@@ -187,7 +187,7 @@ func TestXJSON(Te *testing.T) {
 	O := new(Options)
 	O.Rounds = 20
 	O.SubSample = 0.9
-	O.RegLambda = 0.7
+	O.Lambda = 0.7
 	O.Gamma = 0.5
 	O.MinChildWeight = 3
 	O.MaxDepth = 6
@@ -291,7 +291,7 @@ func TestCrossValXBoost(Te *testing.T) {
 	O.XGB = true
 	O.Rounds = 50
 	O.SubSample = 0.9
-	O.RegLambda = 1.1
+	O.Lambda = 1.1
 	O.Gamma = 0.1
 	O.MinChildWeight = 2
 	O.MaxDepth = 3
