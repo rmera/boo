@@ -281,11 +281,11 @@ func GradientConcCVGrid(data *utils.DataBunch, nfold int, options ...*CVGridOpti
 					return nil, err
 				}
 				if len(accuracies) > 0 && acc < accuracies[len(accuracies)-1] {
-					println("rejected step")
+					//			println("rejected step")
 					return fuzzOptions(tprev), nil
 
 				}
-				println("new (might not be best) accuracy!", acc)
+				//		println("new (might not be best) accuracy!", acc)
 				if acc > bestacc {
 					if o.Verbose {
 						fmt.Println("New best accuracy: ", acc, t)

@@ -30,6 +30,7 @@ type Options struct {
 	XGB            bool
 	Rounds         int
 	MaxDepth       int
+	EarlyTerm      int //roundw without increased fit before we stop trying.
 	LearningRate   float64
 	Lambda         float64
 	MinChildWeight float64
@@ -59,6 +60,7 @@ func DefaultXOptions() *Options {
 	O.LearningRate = 0.3
 	O.BaseScore = 0.5
 	O.TreeMethod = "exact"
+	O.EarlyTerm = 10
 	O.Loss = &utils.SQErrLoss{}
 	O.Verbose = false //just for clarity
 	O.MinSample = 5
@@ -186,6 +188,11 @@ func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 	grads := mat.NewDense(1, r, nil)
 	hess := mat.NewDense(1, r, nil)
 	tmpPreds := make([]float64, r)
+	tmploss := mat.NewDense(1, r, make([]float64, r))
+	stopped := make([]bool, len(differentlabels))
+	roundsNoProgress := make([]int, len(differentlabels))
+	prevloss := make([]float64, len(differentlabels))
+
 	for round := 0; round < O.Rounds; round++ {
 		var sampleIndexes, sampleCols []int
 		if O.SubSample < 1 && O.XGB {
@@ -199,6 +206,9 @@ func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 		}
 		classes := make([]*Tree, 0, 1)
 		for k := 0; k < nlabels; k++ {
+			if stopped[k] {
+				continue
+			}
 			var tOpts *TreeOptions
 			var tree *Tree
 			kthlabelvector := utils.DenseCol(ohelabels, k)
@@ -232,10 +242,34 @@ func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 			floats.Scale(O.LearningRate, tmpPreds)
 			utils.AddToCol(rawPred, tmpPreds, k)
 			probs = utils.SoftMaxDense(rawPred, probs)
-			if O.Verbose {
-				fmt.Printf("round: %d, class: %d train loss = %.3f", round, k, O.Loss.Loss(kthlabelvector, mat.NewDense(0, len(tmpPreds), tmpPreds), nil))
+			var currloss float64
+			if O.EarlyTerm > 0 || O.Verbose {
+				//    t:=mat.NewDense(1, len(tmpPreds), tmpPreds)
+				kthprobs := utils.DenseCol(probs, k)
+				currloss = O.Loss.Loss(kthlabelvector, kthprobs, tmploss)
 			}
 			classes = append(classes, tree)
+			if O.Verbose {
+				fmt.Printf("round: %d, class: %d train loss = %.3f\n", round, k, currloss)
+			}
+			if O.EarlyTerm > 0 {
+				epsilon := 1e-6
+				if currloss >= epsilon {
+					stopped[k] = true
+					continue
+				}
+				if round == 0 {
+					prevloss[k] = currloss
+					continue
+				}
+				if prevloss[k] <= currloss {
+					roundsNoProgress[k]++
+				}
+				if roundsNoProgress[k] >= O.EarlyTerm {
+					stopped[k] = true
+				}
+				prevloss[k] = currloss
+			}
 		}
 		boosters = append(boosters, classes)
 	}

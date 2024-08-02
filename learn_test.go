@@ -161,6 +161,8 @@ func TestXGBoost(Te *testing.T) {
 	O.LearningRate = 0.3
 	O.BaseScore = 0.5
 	O.TreeMethod = "exact"
+	O.EarlyTerm = 2
+	O.Verbose = true
 	O.Loss = &utils.SQErrLoss{}
 
 	boosted := NewMultiClass(data, O)
@@ -353,11 +355,11 @@ func TestCrossValGradGrid(Te *testing.T) {
 	o.ColSubSample = [3]float64{0.1, 0.9, 0.1}
 	o.MinChildWeight = [3]float64{2, 6, 2}
 	o.DeltaFraction = 0.01
-	o.Central = true //////////////////////////
+	o.Central = false //////////////////////////
 	o.Verbose = true
 	o.NSteps = 100
 	o.NCPUs = 4
-	o.Step = 0.05 / 2
+	o.Step = 0.05
 
 	bestacc, accuracies, best, err := GradientConcCVGrid(data, 5, o)
 	if err != nil {
@@ -379,7 +381,7 @@ func TestGradStep(Te *testing.T) {
 		Te.Error(err)
 	}
 	o := DefaultXCVGridOptions()
-	o.Rounds = [3]int{150, 400, 10}
+	o.Rounds = [3]int{10, 100, 10}
 	o.MaxDepth = [3]int{3, 5, 1}
 	o.Lambda = [3]float64{0, 20, 1}
 	o.LearningRate = [3]float64{0.1, 0.6, 0.1}
@@ -434,9 +436,9 @@ func TestCrossValXGBoostGrid(Te *testing.T) {
 		Te.Error(err)
 	}
 	o := DefaultXCVGridOptions()
-	o.Rounds = [3]int{5, 10, 5}
+	o.Rounds = [3]int{100, 500, 10}
 	o.MaxDepth = [3]int{3, 5, 1}
-	o.LearningRate = [3]float64{0.1, 0.3, 0.1}
+	o.LearningRate = [3]float64{0.05, 0.3, 0.1}
 	o.SubSample = [3]float64{0.8, 0.9, 0.1}
 	o.MinChildWeight = [3]float64{2, 6, 2}
 	o.Verbose = true

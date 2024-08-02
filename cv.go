@@ -7,6 +7,8 @@ import (
 	"github.com/rmera/chemlearn/utils"
 )
 
+// Runs a nfold-cross-validation test of the options in opts the data D. It can return the results
+// directly or sent them through channels.
 func MultiClassCrossValidation(D *utils.DataBunch, nfold int, opts *CVOptions) (float64, error) {
 	var accus float64
 	n, sampler, err := utils.CrossValidationSamples(D, nfold, true)
@@ -46,6 +48,8 @@ func MultiClassCrossValidation(D *utils.DataBunch, nfold int, opts *CVOptions) (
 	return accus / float64(n), nil
 }
 
+// Contains options limiting the search-space
+// of a cross-validation-based grid search for best hyperparameters.
 // in all cases the 3 numbers are: initial, final, step
 type CVGridOptions struct {
 	XGB            bool
@@ -67,7 +71,7 @@ type CVGridOptions struct {
 
 // Default options for crossvalidation grid search for
 // gradient boosting hyperparameters. Note that these are not
-// necessarily good choices.
+// necessarily good choices. These defaults are NOT considered part of the API
 func DefaultGCVGridOptions() *CVGridOptions {
 	ret := new(CVGridOptions)
 	ret.XGB = false
@@ -88,7 +92,7 @@ func DefaultGCVGridOptions() *CVGridOptions {
 
 // Default options for crossvalidation grid search for
 // XGBoost hyperparameters. Note that these are not necessaritly
-// good choices.
+// good choices. These defaults are NOT considered part of the API.
 func DefaultXCVGridOptions() *CVGridOptions {
 	ret := new(CVGridOptions)
 	ret.XGB = true
@@ -122,6 +126,7 @@ type CVOptions struct {
 	Err   chan error
 }
 
+// Runs a nfold-cross-validation-based grid search for best hyperparameters within the search space limited by options.
 func ConcCVGrid(data *utils.DataBunch, nfold int, options ...*CVGridOptions) (float64, []float64, *Options, error) {
 	var o *CVGridOptions
 	if len(options) > 0 && options[0] != nil {
@@ -194,6 +199,7 @@ func ConcCVGrid(data *utils.DataBunch, nfold int, options ...*CVGridOptions) (fl
 	return bestacc, accuracies, finaloptions, nil
 }
 
+// Rescues cross-validation results from the given channels (errors, accuracy and the corresponding boosting options)
 func rescueConcValues(errors []chan error, accs []chan float64, opts []chan *Options, bestacc float64, bestop *Options, verbose bool) (float64, *Options, error) {
 	var err error
 	var tmpacc float64
