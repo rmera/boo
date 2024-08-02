@@ -30,7 +30,7 @@ type Options struct {
 	XGB            bool
 	Rounds         int
 	MaxDepth       int
-	EarlyTerm      int //roundw without increased fit before we stop trying.
+	EarlyStop      int //roundw without increased fit before we stop trying.
 	LearningRate   float64
 	Lambda         float64
 	MinChildWeight float64
@@ -60,7 +60,7 @@ func DefaultXOptions() *Options {
 	O.LearningRate = 0.3
 	O.BaseScore = 0.5
 	O.TreeMethod = "exact"
-	O.EarlyTerm = 10
+	O.EarlyStop = 10
 	O.Loss = &utils.SQErrLoss{}
 	O.Verbose = false //just for clarity
 	O.MinSample = 5
@@ -243,7 +243,7 @@ func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 			utils.AddToCol(rawPred, tmpPreds, k)
 			probs = utils.SoftMaxDense(rawPred, probs)
 			var currloss float64
-			if O.EarlyTerm > 0 || O.Verbose {
+			if O.EarlyStop > 0 || O.Verbose {
 				//    t:=mat.NewDense(1, len(tmpPreds), tmpPreds)
 				kthprobs := utils.DenseCol(probs, k)
 				currloss = O.Loss.Loss(kthlabelvector, kthprobs, tmploss)
@@ -252,7 +252,7 @@ func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 			if O.Verbose {
 				fmt.Printf("round: %d, class: %d train loss = %.3f\n", round, k, currloss)
 			}
-			if O.EarlyTerm > 0 {
+			if O.EarlyStop > 0 {
 				epsilon := 1e-6
 				if currloss >= epsilon {
 					stopped[k] = true
@@ -265,7 +265,7 @@ func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 				if prevloss[k] <= currloss {
 					roundsNoProgress[k]++
 				}
-				if roundsNoProgress[k] >= O.EarlyTerm {
+				if roundsNoProgress[k] >= O.EarlyStop {
 					stopped[k] = true
 				}
 				prevloss[k] = currloss

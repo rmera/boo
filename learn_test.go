@@ -161,7 +161,7 @@ func TestXGBoost(Te *testing.T) {
 	O.LearningRate = 0.3
 	O.BaseScore = 0.5
 	O.TreeMethod = "exact"
-	O.EarlyTerm = 2
+	O.EarlyStop = 2
 	O.Verbose = true
 	O.Loss = &utils.SQErrLoss{}
 
