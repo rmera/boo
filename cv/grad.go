@@ -8,7 +8,7 @@ import (
 	"github.com/rmera/boo/utils"
 )
 
-func setOptionsToMid(o *boo.Options, co *CVGridOptions) {
+func setOptionsToMid(o *boo.Options, co *GridOptions) {
 	av := func(i1, i2 float64) float64 { return (i1 + i2) / 2 }
 	avint := func(i1, i2 int) int { return (i1 + i2) / 2 }
 	o.Rounds = avint(co.Rounds[0], co.Rounds[1])
@@ -21,7 +21,7 @@ func setOptionsToMid(o *boo.Options, co *CVGridOptions) {
 	o.MaxDepth = avint(co.MaxDepth[0], co.MaxDepth[1])
 }
 
-func checkAgainstOptions(o *boo.Options, co *CVGridOptions) error {
+func checkAgainstOptions(o *boo.Options, co *GridOptions) error {
 	n := fmt.Errorf
 	if o.Rounds < co.Rounds[0] || o.Rounds > co.Rounds[1] {
 		return n("Round! %v", o.Rounds)
@@ -72,7 +72,7 @@ func CurrentValue(O *boo.Options, param string) float64 {
 	}
 }
 
-func ParamaterGradStep(D *utils.DataBunch, Op *boo.Options, CVO *CVGridOptions, param string, step, fractiondelta, currentAccuracy float64, nfold int, central bool, out chan *boo.Options) {
+func ParamaterGradStep(D *utils.DataBunch, Op *boo.Options, CVO *GridOptions, param string, step, fractiondelta, currentAccuracy float64, nfold int, central bool, out chan *boo.Options) {
 	fd := fractiondelta
 	O := Op.Clone()
 	type myf func(*boo.Options) *boo.Options
@@ -95,7 +95,7 @@ func ParamaterGradStep(D *utils.DataBunch, Op *boo.Options, CVO *CVGridOptions, 
 	pluserr := make(chan error)
 	pluso := make(chan *boo.Options)
 	plusacc := make(chan float64)
-	conc := &CVOptions{O: pO, Acc: plusacc, Err: pluserr, Ochan: pluso, Conc: true}
+	conc := &Options{O: pO, Acc: plusacc, Err: pluserr, Ochan: pluso, Conc: true}
 	go MultiClassCrossValidation(D, nfold, conc)
 
 	var minerr chan error
@@ -111,7 +111,7 @@ func ParamaterGradStep(D *utils.DataBunch, Op *boo.Options, CVO *CVGridOptions, 
 		minerr = make(chan error)
 		mino = make(chan *boo.Options)
 		minacc = make(chan float64)
-		conc := &CVOptions{O: mO, Acc: minacc, Err: minerr, Ochan: mino, Conc: true}
+		conc := &Options{O: mO, Acc: minacc, Err: minerr, Ochan: mino, Conc: true}
 		go MultiClassCrossValidation(D, nfold, conc)
 	}
 
@@ -170,7 +170,7 @@ func ParamaterGradStep(D *utils.DataBunch, Op *boo.Options, CVO *CVGridOptions, 
 	return
 }
 
-func GradStep(Ori *boo.Options, CVO *CVGridOptions, D *utils.DataBunch, step, fractiondelta float64, nfold int, central bool, out chan *boo.Options) *boo.Options {
+func GradStep(Ori *boo.Options, CVO *GridOptions, D *utils.DataBunch, step, fractiondelta float64, nfold int, central bool, out chan *boo.Options) *boo.Options {
 	O := Ori
 	if out != nil {
 		O = Ori.Clone()
@@ -178,7 +178,7 @@ func GradStep(Ori *boo.Options, CVO *CVGridOptions, D *utils.DataBunch, step, fr
 	var curracc float64
 	if !central {
 		var err error
-		conc := &CVOptions{O: O, Acc: nil, Err: nil, Ochan: nil, Conc: false}
+		conc := &Options{O: O, Acc: nil, Err: nil, Ochan: nil, Conc: false}
 		curracc, err = MultiClassCrossValidation(D, nfold, conc)
 		if err != nil {
 			return Ori
@@ -202,7 +202,7 @@ func GradStep(Ori *boo.Options, CVO *CVGridOptions, D *utils.DataBunch, step, fr
 
 }
 
-func setSomeOptionsToMid(o *boo.Options, co *CVGridOptions) *boo.Options {
+func setSomeOptionsToMid(o *boo.Options, co *GridOptions) *boo.Options {
 	av := func(i1, i2 float64) float64 { return (i1 + i2) / 2 }
 	avint := func(i1, i2 int) int { return (i1 + i2) / 2 }
 	o.Rounds = avint(co.Rounds[0], co.Rounds[1])
@@ -217,12 +217,12 @@ func setSomeOptionsToMid(o *boo.Options, co *CVGridOptions) *boo.Options {
 }
 
 // uses 5 gorutines.
-func GradientConcCVGrid(data *utils.DataBunch, nfold int, options ...*CVGridOptions) (float64, []float64, *boo.Options, error) {
-	var o *CVGridOptions
+func GradientConcCVGrid(data *utils.DataBunch, nfold int, options ...*GridOptions) (float64, []float64, *boo.Options, error) {
+	var o *GridOptions
 	if len(options) > 0 && options[0] != nil {
 		o = options[0]
 	} else {
-		o = DefaultXCVGridOptions()
+		o = DefaultXGridOptions()
 	}
 	defaultoptions := boo.DefaultGOptions
 	if o.XGB {
@@ -244,7 +244,7 @@ func GradientConcCVGrid(data *utils.DataBunch, nfold int, options ...*CVGridOpti
 			t.XGB = o.XGB
 			tprev := t.Clone()
 			CompareAccs := func(t, tprev *boo.Options) (*boo.Options, error) {
-				acc, err := MultiClassCrossValidation(data, 5, &CVOptions{O: t, Conc: false})
+				acc, err := MultiClassCrossValidation(data, 5, &Options{O: t, Conc: false})
 				if err != nil {
 					return nil, err
 				}

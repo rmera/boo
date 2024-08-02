@@ -10,7 +10,7 @@ import (
 
 // Runs a nfold-cross-validation test of the options in opts the data D. It can return the results
 // directly or sent them through channels.
-func MultiClassCrossValidation(D *utils.DataBunch, nfold int, opts *CVOptions) (float64, error) {
+func MultiClassCrossValidation(D *utils.DataBunch, nfold int, opts *Options) (float64, error) {
 	var accus float64
 	n, sampler, err := utils.CrossValidationSamples(D, nfold, true)
 	if err != nil {
@@ -52,7 +52,7 @@ func MultiClassCrossValidation(D *utils.DataBunch, nfold int, opts *CVOptions) (
 // Contains options limiting the search-space
 // of a cross-validation-based grid search for best hyperparameters.
 // in all cases the 3 numbers are: initial, final, step
-type CVGridOptions struct {
+type GridOptions struct {
 	XGB            bool
 	Rounds         [3]int
 	MaxDepth       [3]int
@@ -73,8 +73,8 @@ type CVGridOptions struct {
 // Default options for crossvalidation grid search for
 // gradient boosting hyperparameters. Note that these are not
 // necessarily good choices. These defaults are NOT considered part of the API
-func DefaultGCVGridOptions() *CVGridOptions {
-	ret := new(CVGridOptions)
+func DefaultGGridOptions() *GridOptions {
+	ret := new(GridOptions)
 	ret.XGB = false
 	ret.Rounds = [3]int{2, 100, 1}
 	ret.MaxDepth = [3]int{2, 10, 1}
@@ -94,8 +94,8 @@ func DefaultGCVGridOptions() *CVGridOptions {
 // Default options for crossvalidation grid search for
 // XGBoost hyperparameters. Note that these are not necessaritly
 // good choices. These defaults are NOT considered part of the API.
-func DefaultXCVGridOptions() *CVGridOptions {
-	ret := new(CVGridOptions)
+func DefaultXGridOptions() *GridOptions {
+	ret := new(GridOptions)
 	ret.XGB = true
 	ret.Rounds = [3]int{20, 1000, 100}
 	ret.MaxDepth = [3]int{3, 6, 1}
@@ -115,11 +115,11 @@ func DefaultXCVGridOptions() *CVGridOptions {
 	return ret
 }
 
-func DefaultCVGridOptions() *CVGridOptions {
-	return DefaultXCVGridOptions()
+func DefaultGridOptions() *GridOptions {
+	return DefaultXGridOptions()
 }
 
-type CVOptions struct {
+type Options struct {
 	O     *boo.Options
 	Conc  bool
 	Acc   chan float64
@@ -128,12 +128,12 @@ type CVOptions struct {
 }
 
 // Runs a nfold-cross-validation-based grid search for best hyperparameters within the search space limited by options.
-func ConcCVGrid(data *utils.DataBunch, nfold int, options ...*CVGridOptions) (float64, []float64, *boo.Options, error) {
-	var o *CVGridOptions
+func Grid(data *utils.DataBunch, nfold int, options ...*GridOptions) (float64, []float64, *boo.Options, error) {
+	var o *GridOptions
 	if len(options) > 0 && options[0] != nil {
 		o = options[0]
 	} else {
-		o = DefaultXCVGridOptions()
+		o = DefaultXGridOptions()
 	}
 	defaultoptions := boo.DefaultGOptions
 	if o.XGB {
@@ -175,7 +175,7 @@ func ConcCVGrid(data *utils.DataBunch, nfold int, options ...*CVGridOptions) (fl
 									t.SubSample = ss
 									t.MinChildWeight = cw
 									t.XGB = o.XGB
-									conc := &CVOptions{O: t, Acc: accs[cpus], Err: errs[cpus], Ochan: os[cpus], Conc: true}
+									conc := &Options{O: t, Acc: accs[cpus], Err: errs[cpus], Ochan: os[cpus], Conc: true}
 									go MultiClassCrossValidation(data, nfold, conc)
 									cpus++
 									if cpus == o.NCPUs {
