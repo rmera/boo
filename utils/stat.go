@@ -62,7 +62,7 @@ func CrossValidationSamples(data *DataBunch, nfold int, usecopies ...bool) (int,
 	if len(usecopies) > 0 {
 		docopy = usecopies[0]
 	}
-	const minleftout int = 1
+	const minleftout int = 2
 	const minfold int = 2
 	var err error
 	if nfold > 0 {

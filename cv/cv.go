@@ -1,46 +1,56 @@
-package learn
+package cv
 
 import (
 	"fmt"
 	"log"
 
-	"github.com/rmera/chemlearn/utils"
+	"github.com/rmera/boo"
+	"github.com/rmera/boo/utils"
 )
 
+// Runs a nfold-cross-validation test of the options in opts the data D. It can return the results
+// directly or sent them through channels.
 func MultiClassCrossValidation(D *utils.DataBunch, nfold int, opts *CVOptions) (float64, error) {
 	var accus float64
 	n, sampler, err := utils.CrossValidationSamples(D, nfold, true)
 	if err != nil {
 		if n == 0 {
 			if opts.Conc {
-				opts.err <- err
-				opts.acc <- -1
-				opts.ochan <- nil
+				opts.Err <- err
+				opts.Acc <- -1
+				opts.Ochan <- nil
 			}
 			return 0, err
 		}
 		log.Printf("Only %d-fold can be performed due to sample size (%d). Error: %v", n, len(D.Data), err)
 	}
-	for i := 0; i < n; i++ {
-		var b *MultiClass
+	var i int
+	for i = 0; i < n; i++ {
+		var b *boo.MultiClass
 		train, test := sampler()
 		if opts.O == nil {
-			b = NewMultiClass(train)
+			b = boo.NewMultiClass(train)
 		} else {
-			b = NewMultiClass(train, opts.O)
+			b = boo.NewMultiClass(train, opts.O)
+		}
+		if b.Rounds() == 0 {
+			log.Printf("The %d-th fold didn't produce a boosting ensemble, will continue with the others", n)
+
+			continue
 		}
 		a := b.Accuracy(test)
 		accus += a
 	}
 	if opts.Conc {
-		opts.err <- nil
-		opts.acc <- accus / float64(n)
-		opts.ochan <- opts.O
+		opts.Err <- nil
+		opts.Acc <- accus / float64(i) //I use i and not n in case we skip some steps.
+		opts.Ochan <- opts.O
 	}
 	return accus / float64(n), nil
-
 }
 
+// Contains options limiting the search-space
+// of a cross-validation-based grid search for best hyperparameters.
 // in all cases the 3 numbers are: initial, final, step
 type CVGridOptions struct {
 	XGB            bool
@@ -52,13 +62,17 @@ type CVGridOptions struct {
 	SubSample      [3]float64
 	ColSubSample   [3]float64
 	MinChildWeight [3]float64
+	Step           float64
+	DeltaFraction  float64
 	Verbose        bool
+	NSteps         int
+	Central        bool
 	NCPUs          int
 }
 
 // Default options for crossvalidation grid search for
 // gradient boosting hyperparameters. Note that these are not
-// necessarily good choices.
+// necessarily good choices. These defaults are NOT considered part of the API
 func DefaultGCVGridOptions() *CVGridOptions {
 	ret := new(CVGridOptions)
 	ret.XGB = false
@@ -79,7 +93,7 @@ func DefaultGCVGridOptions() *CVGridOptions {
 
 // Default options for crossvalidation grid search for
 // XGBoost hyperparameters. Note that these are not necessaritly
-// good choices.
+// good choices. These defaults are NOT considered part of the API.
 func DefaultXCVGridOptions() *CVGridOptions {
 	ret := new(CVGridOptions)
 	ret.XGB = true
@@ -91,6 +105,11 @@ func DefaultXCVGridOptions() *CVGridOptions {
 	ret.SubSample = [3]float64{0.6, 0.9, 0.1}
 	ret.ColSubSample = [3]float64{0.6, 0.9, 0.1}
 	ret.MinChildWeight = [3]float64{3, 5, 1}
+	ret.Step = 0.1
+	ret.DeltaFraction = 0.05
+	ret.NSteps = 6
+	ret.Central = true
+
 	ret.Verbose = false
 	ret.NCPUs = 1
 	return ret
@@ -101,40 +120,44 @@ func DefaultCVGridOptions() *CVGridOptions {
 }
 
 type CVOptions struct {
-	O     *Options
+	O     *boo.Options
 	Conc  bool
-	acc   chan float64
-	ochan chan *Options
-	err   chan error
+	Acc   chan float64
+	Ochan chan *boo.Options
+	Err   chan error
 }
 
-func ConcCVGrid(data *utils.DataBunch, nfold int, options ...*CVGridOptions) (float64, []float64, *Options, error) {
+// Runs a nfold-cross-validation-based grid search for best hyperparameters within the search space limited by options.
+func ConcCVGrid(data *utils.DataBunch, nfold int, options ...*CVGridOptions) (float64, []float64, *boo.Options, error) {
 	var o *CVGridOptions
 	if len(options) > 0 && options[0] != nil {
 		o = options[0]
 	} else {
 		o = DefaultXCVGridOptions()
 	}
-	defaultoptions := DefaultGOptions
+	defaultoptions := boo.DefaultGOptions
 	if o.XGB {
-		defaultoptions = DefaultXOptions
+		defaultoptions = boo.DefaultXOptions
 	}
-	var finaloptions *Options
+	var finaloptions *boo.Options
 	accuracies := make([]float64, 0, 100)
 	bestacc := 0.0
 	accs := make([]chan float64, o.NCPUs)
 	errs := make([]chan error, o.NCPUs)
 
-	os := make([]chan *Options, o.NCPUs)
+	os := make([]chan *boo.Options, o.NCPUs)
 	for i := range o.NCPUs {
 		accs[i] = make(chan float64)
 		errs[i] = make(chan error)
-		os[i] = make(chan *Options)
+		os[i] = make(chan *boo.Options)
 	}
 	//welcome to nested-hell. Sorry.
 	cpus := 0
 	for cw := o.MinChildWeight[0]; cw <= o.MinChildWeight[1]; cw += o.MinChildWeight[2] {
 		for rounds := o.Rounds[0]; rounds <= o.Rounds[1]; rounds += o.Rounds[2] {
+			if o.Verbose {
+				fmt.Println("Rounds: ", rounds, "MinChildWeight:", cw)
+			}
 			for md := o.MaxDepth[0]; md <= o.MaxDepth[1]; md += o.MaxDepth[2] {
 				for css := o.ColSubSample[0]; css <= o.ColSubSample[1]; css += o.ColSubSample[2] {
 					for lr := o.LearningRate[0]; lr <= o.LearningRate[1]; lr += o.LearningRate[2] {
@@ -152,7 +175,7 @@ func ConcCVGrid(data *utils.DataBunch, nfold int, options ...*CVGridOptions) (fl
 									t.SubSample = ss
 									t.MinChildWeight = cw
 									t.XGB = o.XGB
-									conc := &CVOptions{O: t, acc: accs[cpus], err: errs[cpus], ochan: os[cpus], Conc: true}
+									conc := &CVOptions{O: t, Acc: accs[cpus], Err: errs[cpus], Ochan: os[cpus], Conc: true}
 									go MultiClassCrossValidation(data, nfold, conc)
 									cpus++
 									if cpus == o.NCPUs {
@@ -177,16 +200,20 @@ func ConcCVGrid(data *utils.DataBunch, nfold int, options ...*CVGridOptions) (fl
 	return bestacc, accuracies, finaloptions, nil
 }
 
-func rescueConcValues(errors []chan error, accs []chan float64, opts []chan *Options, bestacc float64, bestop *Options, verbose bool) (float64, *Options, error) {
+// Rescues cross-validation results from the given channels (errors, accuracy and the corresponding boosting options)
+func rescueConcValues(errors []chan error, accs []chan float64, opts []chan *boo.Options, bestacc float64, bestop *boo.Options, verbose bool) (float64, *boo.Options, error) {
 	var err error
 	var tmpacc float64
-	var tmpop *Options
+	var tmpop *boo.Options
 	for i, v := range errors {
 		err = <-v
 		if err != nil {
 			return -1, nil, err
 		}
 		tmpacc = <-accs[i]
+		if tmpacc < 0 {
+			return -1, nil, fmt.Errorf("grads zero") //not a real error, just that the optimizatio is over.
+		}
 		tmpop = <-opts[i]
 		if tmpacc > bestacc {
 			bestacc = tmpacc
@@ -195,62 +222,7 @@ func rescueConcValues(errors []chan error, accs []chan float64, opts []chan *Opt
 				fmt.Printf("New Best Accuracy %.0f%%, %s\n", bestacc, bestop.String())
 			}
 		}
-
 	}
 	return bestacc, bestop, nil
 
 }
-
-/*
-func CVGrid(data *utils.DataBunch, nfold int, verbose bool, options ...*CVGridOptions) (float64, []float64, *Options, error) {
-	var o *CVGridOptions
-	if len(options) > 0 && options[0] != nil {
-		o = options[0]
-	} else {
-		o = DefaultCVGridOptions()
-	}
-	var finaloptions *Options
-	accuracies := make([]float64, 0, 100)
-	bestacc := 0.0
-	//welcome to nested-hell. Sorry.
-	for cw := o.MinChildWeight[0]; cw <= o.MinChildWeight[1]; cw += o.MinChildWeight[2] {
-		for rounds := o.Rounds[0]; rounds <= o.Rounds[1]; rounds += o.Rounds[2] {
-			for md := o.MaxDepth[0]; md <= o.MaxDepth[1]; md += o.MaxDepth[2] {
-				for lr := o.LearningRate[0]; lr <= o.LearningRate[1]; lr += o.LearningRate[2] {
-					for lam := o.Lambda[0]; lam <= o.Lambda[1]; lam += o.Lambda[2] {
-						for gam := o.Gamma[0]; gam <= o.Gamma[1]; gam += o.Gamma[2] {
-							for ss := o.SubSample[0]; ss <= o.SubSample[1]; ss += o.SubSample[2] {
-
-								t := DefaultOptions()
-								t.LearningRate = lr
-								t.MaxDepth = md
-								t.Rounds = rounds
-								t.Lambda = lam
-								t.Gamma = gam
-								t.SubSample = ss
-								t.MinChildWeight = cw
-								acc, err := MultiClassCrossValidation(data, nfold, t)
-								if err != nil {
-									return 0, nil, nil, err
-								}
-								accuracies = append(accuracies, acc)
-								if acc > bestacc {
-									if verbose {
-										fmt.Printf("New Best Accuracy %.0f%%, %s\n", acc, t.String())
-									}
-									finaloptions = t
-									bestacc = acc
-								}
-
-							}
-						}
-
-					}
-				}
-			}
-		}
-	}
-	return bestacc, accuracies, finaloptions, nil
-}
-
-*/

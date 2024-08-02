@@ -1,26 +1,26 @@
-# Gradient-boosting learning for multi-class classification.
+![Boo](graphics/fantasmita.png)
+
+
+# Boo: Scare-Free Gradient-boosting.
 
 ## Introduction
 
-chemLearn is a library that implements a simplified versions of gradient boosting
+Boo is a library that implements a tree-based gradient boosting
 and [extreme gradient boosting](https://github.com/dmlc/xgboost) ([reference](https://arxiv.org/abs/1603.02754)) for classification, in pure Go. 
-
-The goal is for chemLearn to become a part of goChem when its mature enough, hence the name. Still, there is nothing specific about Chemistry in the library.
 
 # Features
 
-* Row and column subsampling
 
-* Simple implementation and data format. It's quite easy for any program to put the data into chemLearn's "Databunch" format.
+* Simple implementation and data format. It's quite easy for any program to put the data into Boo "Databunch" format.
 
 * The library is pure Go, so there are no runtime dependencies. There is only one compilation-time dependency (the [Gonum library](www.gonum.org)).
 
-* The library can serialize models in JSON format, and recover them. 
+* The library can serialize models in JSON format, and recover them (the JSON format is pretty simple for 3rd-party libraries to read). 
 
-* Some facilities, such as cross-validation and file-reading (a _very_ naive/incomplete)
+* Basic file-reading  facilities a _very_ naive
 reader for the libSVM format, and a reader for the CSV format), are provided.
 
-* The cross-validation grid search for the hyperparameters can run in parallel
+* Cross-validation and CV-based grid search for hyperparameter optimization.
 
 
 
@@ -33,21 +33,26 @@ Both the regular gradient-boosting as well as the xgboost implementations are cl
 by [Matt Bowers](https://github.com/mcb00)
 
 
-## Things that are missing
+## Things that are missing / in progress
 
 Many of these reflect the fact that I mostly work with rather small, dense datasets. 
 
 * There are only exact trees, and no sparsity-awareness.
-* In general, computational performance is not a priority for this project, at least for now. 
+* Several other features in the XGBoost library are absent.
+* In general, computational performance is not a top priority for this project, though of course it would be nice.
 * As mentioned above, the libSVM reading support is very basic. 
 * Only classification is supported. Still, since its  multi-class classification using one-hot-encoding, and the "activation function" (softmax by default) can be changed, I suspect you can trick the function into doing regression by giving one class and an activation function that does nothing.
 * There is nothing to deal with missing features in the samples.
-* Tests could be (and are being) improved.
 * Documentation (though the tests can be used as examples, as stated below). Comments in the code are being improved.
+* Ability to recover and apply serialized models from XGBoost. There is the [Leaves](https://github.com/dmitryikh/leaves) library for that, though.
+* A less brute-force scheme for hyperparameter determination
 
-# Using chemLearn
+On the last point, there is a preliminar, and quite naive version that uses a simple, numerical gradient-based routine to 
+search for parameters.
 
-Hopefully I'll add instructions, for now, take a look at the test file (learn_test.go) to see examples. The code is --mostly--commented, so the regular Go documentation system should work. (I'm working on improving the comments).
+# Using Boo
+
+Hopefully I'll add instructions, for now, take a look at the test files (those ending in \_test.go) to see examples. The code is --mostly--commented, so the regular Go documentation system should work. (I'm working on improving the comments).
 
  ## On machine learning
 
@@ -73,4 +78,6 @@ PURPOSE.  See the GNU General Public License for more details.
 You should have received a copy of the GNU Lesser General 
 Public License along with this program. If not, see 
 <http://www.gnu.org/licenses/>. 
+
+The Mascot is Copyright (c) Rocio Araya, under a [Creative Commons BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
 

@@ -1,4 +1,4 @@
-package learn
+package boo
 
 import (
 	"bufio"
@@ -8,7 +8,7 @@ import (
 	"math"
 	"strings"
 
-	"github.com/rmera/chemlearn/utils"
+	"github.com/rmera/boo/utils"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -152,7 +152,6 @@ func MarshalMCMetaData(m *MultiClass, probtransformname string) ([]byte, error) 
 
 func (t *Tree) JNode(id uint) *utils.JSONNode {
 	bs := t.bestScoreSoFar
-	fmt.Println(bs, t.bestScoreSoFar) ///////////////////////////////
 	if t.Leaf() && !t.xgb {
 		bs = 0.1189998819991197253
 	}

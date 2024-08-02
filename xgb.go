@@ -1,4 +1,4 @@
-package learn
+package boo
 
 // Copyright (c) 2024 Raul Mera A.
 
@@ -7,92 +7,10 @@ import (
 	"math"
 	"math/rand/v2"
 
-	"github.com/rmera/chemlearn/utils"
+	"github.com/rmera/boo/utils"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/mat"
 )
-
-// MultiClass is a multi-class gradient-boosted (xgboost or "regular")
-// classification ensamble.
-type MultiClass struct {
-	b             [][]*Tree
-	utilsingRate  float64
-	classLabels   []int
-	probTransform func(*mat.Dense, *mat.Dense) *mat.Dense
-	tmp           []float64
-	predtmp       []float64
-	baseScore     float64
-	xgb           bool
-}
-
-// Contain options to create a multi-class classification ensamble.
-type Options struct {
-	XGB            bool
-	Rounds         int
-	MaxDepth       int
-	LearningRate   float64
-	Lambda         float64
-	MinChildWeight float64
-	Gamma          float64
-	SubSample      float64
-	ColSubSample   float64
-	BaseScore      float64
-	MinSample      int //the minimum samples in each tree
-	TreeMethod     string
-	//	EarlyStopRounds      int //stop after n consecutive rounds of no improvement. Not implemented yet.
-	Verbose bool
-	Loss    utils.LossFunc
-}
-
-// Returns a pointer to an Options structure with the default values
-// for an XGBoost multi-class classification ensamble.
-func DefaultXOptions() *Options {
-	O := new(Options)
-	O.XGB = true
-	O.Rounds = 20
-	O.SubSample = 0.8
-	O.ColSubSample = 0.8
-	O.Lambda = 1.5
-	O.MinChildWeight = 3
-	O.MaxDepth = 5
-	O.LearningRate = 0.3
-	O.BaseScore = 0.5
-	O.TreeMethod = "exact"
-	O.Loss = &utils.SQErrLoss{}
-	O.Verbose = false //just for clarity
-	O.MinSample = 5
-	return O
-}
-
-// Returns a pointer to an Options structure with the default
-// options a for regular gradient boosting multi-class classification
-// ensamble.
-func DefaultGOptions() *Options {
-	O := new(Options)
-	O.XGB = false
-	O.Rounds = 10
-	O.MaxDepth = 4
-	O.LearningRate = 0.1
-	O.MinChildWeight = 3
-	O.Loss = &utils.MSELoss{}
-
-	return O
-}
-
-// Returns a string representation of the options
-func (O *Options) String() string {
-	if O.XGB {
-		return fmt.Sprintf("xgboost %d r/%d md/%.3f lr/%.3f ss/%.3f bs/%.3f gam/%.3f lam/%.3f mcw/%.3f css", O.Rounds, O.MaxDepth, O.LearningRate, O.SubSample, O.BaseScore, O.Gamma, O.Lambda, O.MinChildWeight, O.ColSubSample)
-	} else {
-		return fmt.Sprintf("gboost %d r/%d md/%.3f lr/%.3f mcw", O.Rounds, O.MaxDepth, O.LearningRate, O.MinChildWeight)
-
-	}
-
-}
-
-func DefaultOptions() *Options {
-	return DefaultXOptions()
-}
 
 // Produces (and fits) a new multi-class classification boosted tree ensamble
 // It will be of xgboost type if xgboost is true, regular gradient boosting othewise.
@@ -118,6 +36,11 @@ func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 	grads := mat.NewDense(1, r, nil)
 	hess := mat.NewDense(1, r, nil)
 	tmpPreds := make([]float64, r)
+	tmploss := mat.NewDense(1, r, make([]float64, r))
+	stopped := make([]bool, len(differentlabels))
+	roundsNoProgress := make([]int, len(differentlabels))
+	prevloss := make([]float64, len(differentlabels))
+
 	for round := 0; round < O.Rounds; round++ {
 		var sampleIndexes, sampleCols []int
 		if O.SubSample < 1 && O.XGB {
@@ -131,6 +54,9 @@ func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 		}
 		classes := make([]*Tree, 0, 1)
 		for k := 0; k < nlabels; k++ {
+			if stopped[k] {
+				continue
+			}
 			var tOpts *TreeOptions
 			var tree *Tree
 			kthlabelvector := utils.DenseCol(ohelabels, k)
@@ -164,10 +90,34 @@ func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 			floats.Scale(O.LearningRate, tmpPreds)
 			utils.AddToCol(rawPred, tmpPreds, k)
 			probs = utils.SoftMaxDense(rawPred, probs)
-			if O.Verbose {
-				fmt.Printf("round: %d, class: %d train loss = %.3f", round, k, O.Loss.Loss(kthlabelvector, mat.NewDense(0, len(tmpPreds), tmpPreds), nil))
+			var currloss float64
+			if O.EarlyStop > 0 || O.Verbose {
+				//    t:=mat.NewDense(1, len(tmpPreds), tmpPreds)
+				kthprobs := utils.DenseCol(probs, k)
+				currloss = O.Loss.Loss(kthlabelvector, kthprobs, tmploss)
 			}
 			classes = append(classes, tree)
+			if O.Verbose {
+				fmt.Printf("round: %d, class: %d train loss = %.3f\n", round, k, currloss)
+			}
+			if O.EarlyStop > 0 {
+				epsilon := 1e-6
+				if currloss >= epsilon {
+					stopped[k] = true
+					continue
+				}
+				if round == 0 {
+					prevloss[k] = currloss
+					continue
+				}
+				if prevloss[k] <= currloss {
+					roundsNoProgress[k]++
+				}
+				if roundsNoProgress[k] >= O.EarlyStop {
+					stopped[k] = true
+				}
+				prevloss[k] = currloss
+			}
 		}
 		boosters = append(boosters, classes)
 	}
@@ -226,75 +176,6 @@ func SubSample(totdata int, subsample float64) []int {
 		}
 	}
 	return ret
-}
-
-// Returns the percentage of accuracy of the model on the data (which needs to contain
-// labels). You can give it the number of classes present, which helps with memory.
-func (M *MultiClass) Accuracy(D *utils.DataBunch, classes ...int) float64 {
-	right := 0
-	instances := D.Data
-	actualclasses := D.Labels
-	if len(classes) > 0 && classes[0] > 0 && len(M.predtmp) < classes[0] {
-		M.predtmp = make([]float64, classes[0])
-	}
-	for i, v := range instances {
-		p := M.PredictSingleClass(v, M.predtmp)
-		if M.classLabels[p] == actualclasses[i] {
-			right++
-		}
-	}
-	return 100.0 * (float64(right) / float64(len(instances)))
-
-}
-
-// Predicts the class to which a single sample belongs. You can give a slice of floats
-// to use as temporal storage for the probabilities that are used to assign the class
-func (M *MultiClass) PredictSingleClass(instance []float64, predictions ...[]float64) int {
-	preds := M.PredictSingle(instance, predictions...)
-	prediction := 0
-	maxval := preds[0]
-	for i, v := range preds {
-		if v > maxval {
-			prediction = i
-			maxval = v
-		}
-	}
-	return prediction
-}
-
-// Returns a slice with the probability of the sample belonging to each class. You can supply
-// a slice to be filled with the predictions in order to avoid allocation.
-func (M *MultiClass) PredictSingle(instance []float64, predictions ...[]float64) []float64 {
-	var preds []float64
-	preds = make([]float64, len(M.b[0]))
-	tmp := make([]float64, len(M.b[0]))
-	for i := range tmp {
-		tmp[i] = M.baseScore
-	}
-	for _, ensemble := range M.b {
-		for class, tree := range ensemble {
-			tmp[class] += tree.PredictSingle(instance) * M.utilsingRate
-		}
-	}
-	O := mat.NewDense(1, len(tmp), tmp)
-	D := mat.NewDense(1, len(preds), preds)
-	D = M.probTransform(O, D)
-	preds = D.RawMatrix().Data
-	return preds //SHOULD contain the numbers now.
-}
-
-// Returns the features ranked by their "importance" to the classification.
-func (M *MultiClass) FeatureImportance() (*Feats, error) {
-	ret := NewFeats(M.xgb)
-	for round, ensemble := range M.b {
-		for class, tree := range ensemble {
-			_, err := tree.FeatureImportance(M.xgb, ret)
-			if err != nil {
-				return nil, fmt.Errorf("Error with features of tree for class %d, boosting round %d", class, round)
-			}
-		}
-	}
-	return ret, nil
 }
 
 func updateLeaves(tree *Tree, gradient, hessian *mat.Dense) {

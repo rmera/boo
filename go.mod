@@ -1,4 +1,4 @@
-module github.com/rmera/chemlearn
+module github.com/rmera/boo
 
 go 1.22.0
 
