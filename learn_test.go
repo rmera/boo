@@ -344,7 +344,7 @@ func TestCrossValGradGrid(Te *testing.T) {
 		Te.Error(err)
 	}
 	o := DefaultXCVGridOptions()
-	o.Rounds = [3]int{5, 300, 10}
+	o.Rounds = [3]int{50, 500, 10}
 	o.MaxDepth = [3]int{3, 5, 1}
 	o.Lambda = [3]float64{0, 20, 1}
 	o.LearningRate = [3]float64{0.1, 0.6, 0.1}
@@ -352,10 +352,12 @@ func TestCrossValGradGrid(Te *testing.T) {
 	o.SubSample = [3]float64{0.1, 0.9, 0.1}
 	o.ColSubSample = [3]float64{0.1, 0.9, 0.1}
 	o.MinChildWeight = [3]float64{2, 6, 2}
-	o.Central = false //////////////////////////
+	o.DeltaFraction = 0.01
+	o.Central = true //////////////////////////
 	o.Verbose = true
+	o.NSteps = 100
 	o.NCPUs = 4
-	o.Step = 0.5
+	o.Step = 0.05 / 2
 
 	bestacc, accuracies, best, err := GradientConcCVGrid(data, 5, o)
 	if err != nil {
@@ -363,6 +365,7 @@ func TestCrossValGradGrid(Te *testing.T) {
 	}
 	fmt.Println("Crossvalidation best accuracy:", bestacc)
 	fmt.Printf("With %d rounds, %d maxdepth and %.3f learning rate\n", best.Rounds, best.MaxDepth, best.LearningRate)
+	fmt.Println(best)
 	fmt.Println("All accuracies:", accuracies)
 
 	b := NewMultiClass(data, best)
@@ -376,28 +379,27 @@ func TestGradStep(Te *testing.T) {
 		Te.Error(err)
 	}
 	o := DefaultXCVGridOptions()
-	o.Rounds = [3]int{5, 200, 10}
+	o.Rounds = [3]int{150, 400, 10}
 	o.MaxDepth = [3]int{3, 5, 1}
 	o.Lambda = [3]float64{0, 20, 1}
 	o.LearningRate = [3]float64{0.1, 0.6, 0.1}
 	o.Gamma = [3]float64{0.0, 0.9, 0.1}
-	o.SubSample = [3]float64{0.1, 0.9, 0.1}
-	o.ColSubSample = [3]float64{0.1, 0.9, 0.1}
+	o.SubSample = [3]float64{0.1, 1, 0.1}
+	o.ColSubSample = [3]float64{0.1, 1, 0.1}
 	o.MinChildWeight = [3]float64{2, 6, 2}
 	o.Central = false //////////////////////////
 	o.Verbose = true
 	o.NCPUs = 4
-	o.Step = 0.5
-	o.DeltaFraction = 0.2
+	o.Step = 0.05
 	op := DefaultOptions()
 	op = setSomeOptionsToMid(op, o)
 	oprev := op.Clone()
 	fmt.Println("Will start with the grad steps")
 	o.DeltaFraction = 0.01
 	var acc = 0.0
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 50; i++ {
 		fmt.Println("A step will run", op)
-		op = GradStep(op, o, data, o.Step, o.DeltaFraction, 5, o.Central)
+		op = GradStep(op, o, data, o.Step, o.DeltaFraction, 5, o.Central, nil)
 		fmt.Println("A grad step ran")
 		if op == nil {
 			fmt.Println("got nil  option from grad step")

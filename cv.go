@@ -21,7 +21,8 @@ func MultiClassCrossValidation(D *utils.DataBunch, nfold int, opts *CVOptions) (
 		}
 		log.Printf("Only %d-fold can be performed due to sample size (%d). Error: %v", n, len(D.Data), err)
 	}
-	for i := 0; i < n; i++ {
+	var i int
+	for i = 0; i < n; i++ {
 		var b *MultiClass
 		train, test := sampler()
 		if opts.O == nil {
@@ -29,16 +30,20 @@ func MultiClassCrossValidation(D *utils.DataBunch, nfold int, opts *CVOptions) (
 		} else {
 			b = NewMultiClass(train, opts.O)
 		}
+		if len(b.b) == 0 || len(b.b[0]) == 0 {
+			log.Printf("The %d-th fold didn't produce a boosting ensemble, will continue with the others", n)
+
+			continue
+		}
 		a := b.Accuracy(test)
 		accus += a
 	}
 	if opts.Conc {
 		opts.Err <- nil
-		opts.Acc <- accus / float64(n)
+		opts.Acc <- accus / float64(i) //I use i and not n in case we skip some steps.
 		opts.Ochan <- opts.O
 	}
 	return accus / float64(n), nil
-
 }
 
 // in all cases the 3 numbers are: initial, final, step
@@ -144,6 +149,9 @@ func ConcCVGrid(data *utils.DataBunch, nfold int, options ...*CVGridOptions) (fl
 	cpus := 0
 	for cw := o.MinChildWeight[0]; cw <= o.MinChildWeight[1]; cw += o.MinChildWeight[2] {
 		for rounds := o.Rounds[0]; rounds <= o.Rounds[1]; rounds += o.Rounds[2] {
+			if o.Verbose {
+				fmt.Println("Rounds: ", rounds, "MinChildWeight:", cw)
+			}
 			for md := o.MaxDepth[0]; md <= o.MaxDepth[1]; md += o.MaxDepth[2] {
 				for css := o.ColSubSample[0]; css <= o.ColSubSample[1]; css += o.ColSubSample[2] {
 					for lr := o.LearningRate[0]; lr <= o.LearningRate[1]; lr += o.LearningRate[2] {
@@ -190,15 +198,12 @@ func rescueConcValues(errors []chan error, accs []chan float64, opts []chan *Opt
 	var err error
 	var tmpacc float64
 	var tmpop *Options
-	println("called") ///////////////
 	for i, v := range errors {
 		err = <-v
 		if err != nil {
-			println("wwiiiiias") /////////
 			return -1, nil, err
 		}
 		tmpacc = <-accs[i]
-		println("ACCURACY:", tmpacc) ////////////////////////////////////
 		if tmpacc < 0 {
 			return -1, nil, fmt.Errorf("grads zero") //not a real error, just that the optimizatio is over.
 		}
@@ -210,7 +215,6 @@ func rescueConcValues(errors []chan error, accs []chan float64, opts []chan *Opt
 				fmt.Printf("New Best Accuracy %.0f%%, %s\n", bestacc, bestop.String())
 			}
 		}
-
 	}
 	return bestacc, bestop, nil
 

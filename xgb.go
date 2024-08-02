@@ -65,6 +65,53 @@ func DefaultXOptions() *Options {
 	return O
 }
 
+func (o *Options) Equal(O *Options) bool {
+	if O.XGB != o.XGB {
+		return false
+	}
+	if O.Rounds != o.Rounds {
+		return false
+	}
+	if O.SubSample != o.SubSample {
+		return false
+	}
+	if O.ColSubSample != o.ColSubSample {
+		return false
+	}
+	if O.Lambda != o.Lambda {
+		return false
+	}
+	if O.MinChildWeight != o.MinChildWeight {
+		return false
+	}
+	if O.Gamma != o.Gamma {
+
+		return false
+	}
+	if O.MaxDepth != o.MaxDepth {
+		return false
+	}
+	if O.LearningRate != o.LearningRate {
+		return false
+	}
+	if O.BaseScore != o.BaseScore {
+		return false
+	}
+	if O.TreeMethod != "exact" {
+		return false
+	}
+	if O.Loss != o.Loss {
+		return false
+	}
+	if O.Verbose != o.Verbose {
+		return false
+	}
+	if O.MinSample != o.MinSample {
+		return false
+	}
+	return true
+}
+
 func (o *Options) Clone() *Options {
 	O := new(Options)
 	O.XGB = o.XGB

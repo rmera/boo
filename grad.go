@@ -2,7 +2,7 @@ package learn
 
 import (
 	"fmt"
-	"slices"
+	"math/rand/v2"
 
 	"github.com/rmera/chemlearn/utils"
 )
@@ -85,146 +85,153 @@ func checkAgainstOptions(o *Options, co *CVGridOptions) error {
 	return nil
 }
 
-func GradStep(Ori *Options, CVO *CVGridOptions, D *utils.DataBunch, step, fractiondelta float64, nfold int, central bool) *Options {
-	O := Ori.Clone()
+func CurrentValue(O *Options, param string) float64 {
+	switch param {
+	case "Gamma":
+		return O.Gamma
+	case "Lambda":
+		return O.Lambda
+	case "SubSample":
+		return O.SubSample
+	case "ColSubSample":
+		return O.ColSubSample
+	case "LearningRate":
+		return O.LearningRate
+	case "Rounds":
+		return float64(O.Rounds)
+	default:
+		return -1
+	}
+}
+
+func ParamaterGradStep(D *utils.DataBunch, Op *Options, CVO *CVGridOptions, param string, step, fractiondelta, currentAccuracy float64, nfold int, central bool, out chan *Options) {
 	fd := fractiondelta
-	nt := (6 * 2) + 1
-	last := nt - 1 //index of the last element
-	accs := make([]chan float64, nt)
-	errs := make([]chan error, nt)
-	os := make([]chan *Options, nt)
-	for i := 0; i < nt; i++ {
-		accs[i] = make(chan float64)
-		errs[i] = make(chan error)
-		os[i] = make(chan *Options)
-	}
-	if !central {
-		conc := &CVOptions{O: O, Acc: accs[last], Err: errs[last], Ochan: os[last], Conc: true}
-		go MultiClassCrossValidation(D, nfold, conc)
-	}
+	O := Op.Clone()
+	type myf func(*Options) *Options
 
-	f := make([]func(*Options) *Options, nt-1)
-	f[0] = func(o *Options) *Options { o.Gamma -= (o.Gamma * fd); return o }
-	f[1] = func(o *Options) *Options { o.Gamma += (o.Gamma * fd); return o }
+	f := make(map[string][2]myf, 11)
+	f["Curr"] = [2]myf{func(o *Options) *Options { return o }, func(o *Options) *Options { return o }}
+	f["Gamma"] = [2]myf{func(o *Options) *Options { o.Gamma -= (o.Gamma * fd); return o }, func(o *Options) *Options { o.Gamma += (o.Gamma * fd); return o }}
 
-	f[2] = func(o *Options) *Options { o.Lambda -= (o.Lambda * fd); return o }
-	f[3] = func(o *Options) *Options { o.Lambda += (o.Lambda * fd); return o }
+	f["Lambda"] = [2]myf{func(o *Options) *Options { o.Lambda -= (o.Lambda * fd); return o }, func(o *Options) *Options { o.Lambda += (o.Lambda * fd); return o }}
 
-	f[4] = func(o *Options) *Options { o.SubSample -= (o.SubSample * fd); return o }
-	f[5] = func(o *Options) *Options { o.SubSample += (o.SubSample * fd); return o }
+	f["SubSample"] = [2]myf{func(o *Options) *Options { o.SubSample -= (o.SubSample * fd); return o }, func(o *Options) *Options { o.SubSample += (o.SubSample * fd); return o }}
 
-	f[6] = func(o *Options) *Options { o.ColSubSample -= (o.ColSubSample * fd); return o }
-	f[7] = func(o *Options) *Options { o.ColSubSample += (o.ColSubSample * fd); return o }
-	f[8] = func(o *Options) *Options { o.LearningRate -= (o.LearningRate * fd); return o }
-	f[9] = func(o *Options) *Options { o.LearningRate += (o.LearningRate * fd); return o }
+	f["ColSubSample"] = [2]myf{func(o *Options) *Options { o.ColSubSample -= (o.ColSubSample * fd); return o }, func(o *Options) *Options { o.ColSubSample += (o.ColSubSample * fd); return o }}
 
-	f[10] = func(o *Options) *Options { o.Rounds -= int(float64(o.Rounds) * fd); return o }
-	f[11] = func(o *Options) *Options { o.Rounds += int(float64(o.Rounds) * fd); return o }
+	f["LearningRate"] = [2]myf{func(o *Options) *Options { o.LearningRate -= (o.LearningRate * fd); return o }, func(o *Options) *Options { o.LearningRate += (o.LearningRate * fd); return o }}
 
-	var i = 0
-	var excluded []int
-	for _, v := range f {
-		if !central && i%2 == 0 {
-			i++
-			continue
-		}
-		o := O.Clone()
-		o = v(o)
-		if err := checkAgainstOptions(o, CVO); err != nil {
-			excluded = append(excluded, i)
-			continue
-		}
-		conc := &CVOptions{O: o, Acc: accs[i], Err: errs[i], Ochan: os[i], Conc: true}
-		go MultiClassCrossValidation(D, nfold, conc)
-		i++
-	}
+	f["Rounds"] = [2]myf{func(o *Options) *Options { o.Rounds -= int(float64(o.Rounds) * fd); return o }, func(o *Options) *Options { o.Rounds += int(float64(o.Rounds) * fd); return o }}
 
-	rec := func(i int) float64 {
-		if slices.Contains(excluded, i) {
-			return -1000
-		}
-		err := <-errs[i]
-		if err != nil {
-			panic(err)
-		}
-		a := <-accs[i]
-		return a
-	}
-	gm := map[string]float64{"gam": 0, "lam": 0, "ss": 0, "css": 0, "lr": 0, "roun": 0}
+	pO := f[param][1](O.Clone())
+	pluserr := make(chan error)
+	pluso := make(chan *Options)
+	plusacc := make(chan float64)
+	conc := &CVOptions{O: pO, Acc: plusacc, Err: pluserr, Ochan: pluso, Conc: true}
+	go MultiClassCrossValidation(D, nfold, conc)
+
+	var minerr chan error
+	var mino chan *Options
+	var minacc chan float64
+
 	if central {
+		mO := f[param][0](O.Clone())
+		if mO.Check() != nil {
+			out <- O
 
-		pr := func(i, j int, ori float64) float64 {
-			r1 := rec(i)
-			r2 := rec(j)
-			if r1 < -900 || r2 < -900 {
-				return 0
-			}
-			return (r1 - r2) / (2 * ori * fd)
 		}
+		minerr = make(chan error)
+		mino = make(chan *Options)
+		minacc = make(chan float64)
+		conc := &CVOptions{O: mO, Acc: minacc, Err: minerr, Ochan: mino, Conc: true}
+		go MultiClassCrossValidation(D, nfold, conc)
+	}
 
-		gm["gam"] = pr(1, 0, O.Gamma)
-		gm["lam"] = pr(3, 2, O.Lambda)
-		gm["ss"] = pr(5, 4, O.SubSample)
-		gm["css"] = pr(7, 6, O.ColSubSample)
-		gm["lr"] = pr(9, 8, O.LearningRate)
-		gm["rou"] = pr(11, 10, float64(O.Rounds))
-	} else {
-		curr := rec(last)
-		proce := func(i int, ori float64) float64 {
-			r := rec(i)
-			if r < -900 {
-				return 0
-			}
-			return (r - curr) / (ori * fd)
+	err := <-pluserr
+	pacc := <-plusacc
+	var der float64
+	_ = <-pluso
+	if err != nil {
+		out <- O
+	}
+	h := fd * CurrentValue(O, param)
+	if !central {
+		if h < 0 {
+			out <- O
+			return
 		}
-		gm["gam"] = proce(1, O.Gamma)
-		gm["lam"] = proce(3, O.Lambda)
-		gm["ss"] = proce(5, O.SubSample)
-		gm["css"] = proce(7, O.ColSubSample)
-		gm["lr"] = proce(9, O.LearningRate)
-		gm["rou"] = proce(11, float64(O.Rounds))
-	}
-	allzeros := true
-	closenough := 0.001
-	for k, v := range gm {
-		if v < closenough {
-			gm[k] = 0.0
-		} else {
-			allzeros = false
-		}
-	}
-	if allzeros {
-		return nil
-	}
-	reg := func(t float64, allzeros bool) (float64, bool) {
-		_ = allzeros //freaking linter.
-		return t, false
-		/*
-			if t <= 0 {
-				if !allzeros {
-					return 0, false
-				}
-				return 0, true
-			}
-			return t, false
-		*/
-	}
-	allzeros = true
-	O.Gamma, allzeros = reg(O.Gamma+CVO.Gamma[2]*gm["gam"], allzeros)
-	O.Lambda, allzeros = reg(O.Lambda+CVO.Lambda[2]*step*gm["lam"], allzeros)
-	O.SubSample, allzeros = reg(O.SubSample+CVO.SubSample[2]*step*gm["ss"], allzeros)
-	O.ColSubSample, allzeros = reg(O.ColSubSample+CVO.ColSubSample[2]*step*gm["css"], allzeros)
-	O.LearningRate, allzeros = reg(O.LearningRate+CVO.LearningRate[2]*step*gm["lr"], allzeros)
-	O.Rounds = O.Rounds + int(float64(CVO.Rounds[2])*step*gm["roun"])
-	if O.Rounds <= 0 {
-		O.Rounds = 0
+		der = (pacc - currentAccuracy) / h
 	} else {
-		allzeros = false
+		err = <-minerr
+		macc := <-minacc
+		_ = <-mino
+		if err != nil {
+			out <- O
+		}
+		der = (pacc - macc) / 2 * h
+	}
+	prev := O.Clone()
+
+	for st := step; st > 0.1*step; st -= st * 0.2 {
+		switch param {
+		case "Gamma":
+			O.Gamma += der * CVO.Gamma[2] * st
+		case "Lambda":
+			O.Lambda += der * CVO.Lambda[2] * st
+		case "SubSample":
+			O.SubSample += der * CVO.SubSample[2] * st
+		case "ColSubSample":
+			O.ColSubSample += der * CVO.ColSubSample[2] * st
+		case "LearningRate":
+			O.LearningRate += der * CVO.LearningRate[2] * st
+		case "Rounds":
+			O.Rounds += int(der * float64(CVO.Rounds[2]) * st)
+		default:
+			out <- O
+			return
+		}
+		if checkAgainstOptions(O, CVO) == nil {
+			break
+		}
+		O = prev.Clone() //the previous check failed
 	}
 	if checkAgainstOptions(O, CVO) != nil {
-		return nil
+		O = prev
+	}
+	out <- O
+	return
+}
+
+func GradStep(Ori *Options, CVO *CVGridOptions, D *utils.DataBunch, step, fractiondelta float64, nfold int, central bool, out chan *Options) *Options {
+	O := Ori
+	if out != nil {
+		O = Ori.Clone()
+	}
+	var curracc float64
+	if !central {
+		var err error
+		conc := &CVOptions{O: O, Acc: nil, Err: nil, Ochan: nil, Conc: false}
+		curracc, err = MultiClassCrossValidation(D, nfold, conc)
+		if err != nil {
+			return Ori
+		}
+	}
+	gm := map[string]chan *Options{"Gamma": make(chan *Options), "Lambda": make(chan *Options), "SubSample": make(chan *Options), "ColSubSample": make(chan *Options), "LearningRate": make(chan *Options), "Rounds": make(chan *Options)}
+
+	for k, v := range gm {
+		go ParamaterGradStep(D, O, CVO, k, step, fractiondelta, curracc, nfold, central, v)
+	}
+	O.Gamma = (<-gm["Gamma"]).Gamma
+	O.Lambda = (<-gm["Lambda"]).Lambda
+	O.SubSample = (<-gm["SubSample"]).SubSample
+	O.LearningRate = (<-gm["LearningRate"]).LearningRate
+	O.Rounds = (<-gm["Rounds"]).Rounds
+	O.ColSubSample = (<-gm["ColSubSample"]).ColSubSample
+	if out != nil {
+		out <- O
 	}
 	return O
+
 }
 
 func setSomeOptionsToMid(o *Options, co *CVGridOptions) *Options {
@@ -255,66 +262,91 @@ func GradientConcCVGrid(data *utils.DataBunch, nfold int, options ...*CVGridOpti
 	}
 	var finaloptions *Options
 	var accuracies []float64
-	/*
-		accuracies := make([]float64, 0, 100)
-		accs := make([]chan float64, o.NCPUs)
-		errs := make([]chan error, o.NCPUs)
-
-		os := make([]chan *Options, o.NCPUs)
-		//consider the goroutines used by the GradStep function: 6 if you don't use central differences,
-		//10 if you do.
-
-		if o.Central {
-			o.NCPUs /= 12
-		} else {
-			o.NCPUs /= 7
-		}
-		if o.NCPUs == 0 {
-			o.NCPUs = 1
-		}
-		println("cpus", o.NCPUs) //////////////////
-		for i := range o.NCPUs {
-			accs[i] = make(chan float64)
-			errs[i] = make(chan error)
-			os[i] = make(chan *Options)
-		}
-	*/
 	//A bit less hellish than the other function
 	bestacc := 0.0
 	for cw := o.MinChildWeight[0]; cw <= o.MinChildWeight[1]; cw += o.MinChildWeight[2] {
+		if o.Verbose {
+			fmt.Println("ChildrenWeight:", cw)
+		}
 		for md := o.MaxDepth[0]; md <= o.MaxDepth[1]; md += o.MaxDepth[2] {
 			t := defaultoptions()
 			t = setSomeOptionsToMid(t, o)
 			t.MaxDepth = md
 			t.MinChildWeight = cw
 			t.XGB = o.XGB
-			maxstrikes := 50
-			strikes := maxstrikes
-			for s := 0; s < o.NSteps; s++ {
-				t1 := t
-				t = GradStep(t, o, data, o.Step, o.DeltaFraction, nfold, o.Central)
-				if t == nil {
-					t = t1
-					println("nilrecu")
-					strikes--
-					if strikes == 0 {
-						break
-					}
-					continue
-				}
+			tprev := t.Clone()
+			CompareAccs := func(t, tprev *Options) (*Options, error) {
 				acc, err := MultiClassCrossValidation(data, 5, &CVOptions{O: t, Conc: false})
 				if err != nil {
-					return -1, nil, nil, err
+					return nil, err
 				}
+				if len(accuracies) > 0 && acc < accuracies[len(accuracies)-1] {
+					println("rejected step")
+					return fuzzOptions(tprev), nil
+
+				}
+				println("new (might not be best) accuracy!", acc)
 				if acc > bestacc {
+					if o.Verbose {
+						fmt.Println("New best accuracy: ", acc, t)
+					}
 					accuracies = append(accuracies, acc)
 					finaloptions = t
 					bestacc = acc
 				}
-				strikes = maxstrikes
+				return t, nil
+			}
+			t, err := CompareAccs(t, tprev)
+			if err != nil {
+				return -1, nil, nil, err
+			}
+
+			maxstrikes := 3
+			strikes := 0
+			for s := 0; s < o.NSteps; s++ {
+				t1 := t.Clone()
+				t = GradStep(t, o, data, o.Step, o.DeltaFraction, nfold, o.Central, nil)
+				if t.Equal(t1) {
+					strikes++
+					t = fuzzOptions(t, 0.2) //switch to 0.1
+					if strikes == maxstrikes {
+						strikes = 0
+						break
+					}
+					continue
+				}
+				t, err = CompareAccs(t, t1)
+				if err != nil {
+					return -1, nil, nil, err
+				}
+				strikes = 0
 			}
 		}
-
 	}
 	return bestacc, accuracies, finaloptions, nil
+}
+
+// returns f plus or minus up to fuzzperc*f
+func fuzz(f, fuzzperc float64) float64 {
+	fu := rand.Float64() * fuzzperc
+	sign := 1.0
+	if rand.IntN(2) < 1 {
+		sign = -1
+	}
+	return f + sign*fu*f
+}
+
+func fuzzOptions(O *Options, fuzzperc ...float64) *Options {
+	f := 0.1
+	if len(fuzzperc) > 0 && fuzzperc[0] > 0 {
+		f = fuzzperc[0]
+	}
+	O.Rounds = int(fuzz(float64(O.Rounds), f))
+	O.SubSample = fuzz(O.SubSample, f)
+	O.ColSubSample = fuzz(O.ColSubSample, f)
+	O.Lambda = fuzz(O.Lambda, f)
+	O.Gamma = fuzz(O.Gamma, f)
+	O.LearningRate = fuzz(O.LearningRate, f)
+	O.BaseScore = fuzz(O.BaseScore, f)
+	return O
 }
