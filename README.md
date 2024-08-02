@@ -43,7 +43,6 @@ Many of these reflect the fact that I mostly work with rather small, dense datas
 * As mentioned above, the libSVM reading support is very basic. 
 * Only classification is supported. Still, since its  multi-class classification using one-hot-encoding, and the "activation function" (softmax by default) can be changed, I suspect you can trick the function into doing regression by giving one class and an activation function that does nothing.
 * There is nothing to deal with missing features in the samples.
-* Documentation (though the tests can be used as examples, as stated below). Comments in the code are being improved.
 * Ability to recover and apply serialized models from XGBoost. There is the [Leaves](https://github.com/dmitryikh/leaves) library for that, though.
 * A less brute-force scheme for hyperparameter determination
 
@@ -52,9 +51,84 @@ search for parameters.
 
 # Using Boo
 
-Hopefully I'll add instructions, for now, take a look at the test files (those ending in \_test.go) to see examples. The code is --mostly--commented, so the regular Go documentation system should work. (I'm working on improving the comments).
+The use itself is pretty simple, but you do need to set several hyperparameters. 
+The defaults are not -I think- outrageously bad, but the right ones will depend on your system.
 
- ## On machine learning
+## Basic use
+
+```go
+import (
+	"fmt"
+
+	"github.com/rmera/boo"
+	"github.com/rmera/boo/cv"
+	"github.com/rmera/boo/utils"
+)
+    func main(){
+	data, err := utils.DataBunchFromLibSVMFile("../tests/train.svm", true)
+	if err != nil {
+		panic(err)
+	}
+	O := boo.DefaultOptions()
+    
+    boosted := boo.NewMultiClass(data, O) //Trains a boosted ensemble.
+	fmt.Println("train set accuracy", boosted.Accuracy(data))
+
+    //the function continues in the next block
+
+```
+## Cross-validation grid search for hyperparameters
+
+This is a way of selecting the optimal value for the hyperparameters.
+It's a very brute-force approach, but might be doable depending on your data,
+your computing power and the search space.
+
+```go
+
+	o := cv.DefaultXGridOptions()
+    //This is a very small, not realistic, search space.
+	o.Rounds = [3]int{5, 30, 5}
+	o.MaxDepth = [3]int{3, 4, 1}
+	o.LearningRate = [3]float64{0.1, 0.3, 0.1}
+	o.SubSample = [3]float64{0.8, 0.9, 0.1}
+	o.MinChildWeight = [3]float64{2, 6, 2}
+	o.Verbose = true
+	o.NCPUs = 2
+	bestacc, accuracies, best, err := cv.Grid(data, 8, o) //A CV-based grid search for the best hyperparameters.
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Crossvalidation best accuracy:", bestacc)
+	fmt.Printf("With %d rounds, %d maxdepth and %.3f learning rate\n", best.Rounds, best.MaxDepth, best.LearningRate)
+	fmt.Println("All accuracies:", accuracies)
+    
+    // The function continues in the next block.
+
+```
+
+## Gradient-based search (work in progress)
+
+Finally, a somewhat less brute-force approach involves trying to go up the gradient in the hyper-parameter space.
+I'm still working on this one.
+
+```go
+	//You probably want to expand the search space for this one.
+    //But I'll stick to the previous search space for simplicity.
+
+	bestacc, accuracies, best, err = cv.GradientGrid(data, 5, o)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Crossvalidation (grad) best accuracy:", bestacc)
+	fmt.Printf("With %d rounds, %d maxdepth and %.3f learning rate\n", best.Rounds, best.MaxDepth, best.LearningRate)
+	fmt.Println(best)
+	fmt.Println("All accuracies:", accuracies)
+}
+
+```
+
+
+# On machine learning
 
 If you want to be an informed user of Statistical/Machine learning, these are my big 3:
 
