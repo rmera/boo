@@ -1,10 +1,11 @@
-package learn
+package cv
 
 import (
 	"fmt"
 	"log"
 
-	"github.com/rmera/chemlearn/utils"
+	"github.com/rmera/boo"
+	"github.com/rmera/boo/utils"
 )
 
 // Runs a nfold-cross-validation test of the options in opts the data D. It can return the results
@@ -25,14 +26,14 @@ func MultiClassCrossValidation(D *utils.DataBunch, nfold int, opts *CVOptions) (
 	}
 	var i int
 	for i = 0; i < n; i++ {
-		var b *MultiClass
+		var b *boo.MultiClass
 		train, test := sampler()
 		if opts.O == nil {
-			b = NewMultiClass(train)
+			b = boo.NewMultiClass(train)
 		} else {
-			b = NewMultiClass(train, opts.O)
+			b = boo.NewMultiClass(train, opts.O)
 		}
-		if len(b.b) == 0 || len(b.b[0]) == 0 {
+		if b.Rounds() == 0 {
 			log.Printf("The %d-th fold didn't produce a boosting ensemble, will continue with the others", n)
 
 			continue
@@ -119,36 +120,36 @@ func DefaultCVGridOptions() *CVGridOptions {
 }
 
 type CVOptions struct {
-	O     *Options
+	O     *boo.Options
 	Conc  bool
 	Acc   chan float64
-	Ochan chan *Options
+	Ochan chan *boo.Options
 	Err   chan error
 }
 
 // Runs a nfold-cross-validation-based grid search for best hyperparameters within the search space limited by options.
-func ConcCVGrid(data *utils.DataBunch, nfold int, options ...*CVGridOptions) (float64, []float64, *Options, error) {
+func ConcCVGrid(data *utils.DataBunch, nfold int, options ...*CVGridOptions) (float64, []float64, *boo.Options, error) {
 	var o *CVGridOptions
 	if len(options) > 0 && options[0] != nil {
 		o = options[0]
 	} else {
 		o = DefaultXCVGridOptions()
 	}
-	defaultoptions := DefaultGOptions
+	defaultoptions := boo.DefaultGOptions
 	if o.XGB {
-		defaultoptions = DefaultXOptions
+		defaultoptions = boo.DefaultXOptions
 	}
-	var finaloptions *Options
+	var finaloptions *boo.Options
 	accuracies := make([]float64, 0, 100)
 	bestacc := 0.0
 	accs := make([]chan float64, o.NCPUs)
 	errs := make([]chan error, o.NCPUs)
 
-	os := make([]chan *Options, o.NCPUs)
+	os := make([]chan *boo.Options, o.NCPUs)
 	for i := range o.NCPUs {
 		accs[i] = make(chan float64)
 		errs[i] = make(chan error)
-		os[i] = make(chan *Options)
+		os[i] = make(chan *boo.Options)
 	}
 	//welcome to nested-hell. Sorry.
 	cpus := 0
@@ -200,10 +201,10 @@ func ConcCVGrid(data *utils.DataBunch, nfold int, options ...*CVGridOptions) (fl
 }
 
 // Rescues cross-validation results from the given channels (errors, accuracy and the corresponding boosting options)
-func rescueConcValues(errors []chan error, accs []chan float64, opts []chan *Options, bestacc float64, bestop *Options, verbose bool) (float64, *Options, error) {
+func rescueConcValues(errors []chan error, accs []chan float64, opts []chan *boo.Options, bestacc float64, bestop *boo.Options, verbose bool) (float64, *boo.Options, error) {
 	var err error
 	var tmpacc float64
-	var tmpop *Options
+	var tmpop *boo.Options
 	for i, v := range errors {
 		err = <-v
 		if err != nil {

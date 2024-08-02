@@ -1,4 +1,4 @@
-package learn
+package boo
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/rmera/chemlearn/utils"
+	"github.com/rmera/boo/utils"
 	"gonum.org/v1/gonum/floats"
 )
 

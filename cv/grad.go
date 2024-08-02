@@ -1,46 +1,14 @@
-package learn
+package cv
 
 import (
 	"fmt"
 	"math/rand/v2"
 
-	"github.com/rmera/chemlearn/utils"
+	"github.com/rmera/boo"
+	"github.com/rmera/boo/utils"
 )
 
-func (o *Options) Check() error {
-	n := fmt.Errorf
-	if o.Rounds <= 0 {
-		return n("Round! %v", o.Rounds)
-	}
-	if o.LearningRate <= 0 {
-		return n("LearningRate:", o.LearningRate)
-	}
-	if o.SubSample <= 0 || o.ColSubSample <= 0 {
-		return n("SubsSample or ColSubSample %v %v", o.SubSample, o.ColSubSample)
-	}
-	ssmax := 1.0
-	if o.SubSample > ssmax || o.ColSubSample > ssmax {
-		return n("SubSample or ColSubSample %v %v", o.SubSample, o.ColSubSample)
-	}
-	if o.Lambda < 0 {
-		return n("Lambda %v", o.Lambda)
-	}
-	if o.MinChildWeight < 1 {
-		return n("MinChildWeight %d", o.MinChildWeight)
-	}
-	if o.Gamma < 0 {
-		return n("Gamma %v", o.Gamma)
-	}
-	if o.MaxDepth < 2 {
-		return n("MaxDepth %v", o.MaxDepth)
-	}
-	if o.MinSample < 1 {
-		return n("MinSample %v", o.MinSample)
-	}
-	return nil
-}
-
-func setOptionsToMid(o *Options, co *CVGridOptions) {
+func setOptionsToMid(o *boo.Options, co *CVGridOptions) {
 	av := func(i1, i2 float64) float64 { return (i1 + i2) / 2 }
 	avint := func(i1, i2 int) int { return (i1 + i2) / 2 }
 	o.Rounds = avint(co.Rounds[0], co.Rounds[1])
@@ -53,7 +21,7 @@ func setOptionsToMid(o *Options, co *CVGridOptions) {
 	o.MaxDepth = avint(co.MaxDepth[0], co.MaxDepth[1])
 }
 
-func checkAgainstOptions(o *Options, co *CVGridOptions) error {
+func checkAgainstOptions(o *boo.Options, co *CVGridOptions) error {
 	n := fmt.Errorf
 	if o.Rounds < co.Rounds[0] || o.Rounds > co.Rounds[1] {
 		return n("Round! %v", o.Rounds)
@@ -85,7 +53,7 @@ func checkAgainstOptions(o *Options, co *CVGridOptions) error {
 	return nil
 }
 
-func CurrentValue(O *Options, param string) float64 {
+func CurrentValue(O *boo.Options, param string) float64 {
 	switch param {
 	case "Gamma":
 		return O.Gamma
@@ -104,34 +72,34 @@ func CurrentValue(O *Options, param string) float64 {
 	}
 }
 
-func ParamaterGradStep(D *utils.DataBunch, Op *Options, CVO *CVGridOptions, param string, step, fractiondelta, currentAccuracy float64, nfold int, central bool, out chan *Options) {
+func ParamaterGradStep(D *utils.DataBunch, Op *boo.Options, CVO *CVGridOptions, param string, step, fractiondelta, currentAccuracy float64, nfold int, central bool, out chan *boo.Options) {
 	fd := fractiondelta
 	O := Op.Clone()
-	type myf func(*Options) *Options
+	type myf func(*boo.Options) *boo.Options
 
 	f := make(map[string][2]myf, 11)
-	f["Curr"] = [2]myf{func(o *Options) *Options { return o }, func(o *Options) *Options { return o }}
-	f["Gamma"] = [2]myf{func(o *Options) *Options { o.Gamma -= (o.Gamma * fd); return o }, func(o *Options) *Options { o.Gamma += (o.Gamma * fd); return o }}
+	f["Curr"] = [2]myf{func(o *boo.Options) *boo.Options { return o }, func(o *boo.Options) *boo.Options { return o }}
+	f["Gamma"] = [2]myf{func(o *boo.Options) *boo.Options { o.Gamma -= (o.Gamma * fd); return o }, func(o *boo.Options) *boo.Options { o.Gamma += (o.Gamma * fd); return o }}
 
-	f["Lambda"] = [2]myf{func(o *Options) *Options { o.Lambda -= (o.Lambda * fd); return o }, func(o *Options) *Options { o.Lambda += (o.Lambda * fd); return o }}
+	f["Lambda"] = [2]myf{func(o *boo.Options) *boo.Options { o.Lambda -= (o.Lambda * fd); return o }, func(o *boo.Options) *boo.Options { o.Lambda += (o.Lambda * fd); return o }}
 
-	f["SubSample"] = [2]myf{func(o *Options) *Options { o.SubSample -= (o.SubSample * fd); return o }, func(o *Options) *Options { o.SubSample += (o.SubSample * fd); return o }}
+	f["SubSample"] = [2]myf{func(o *boo.Options) *boo.Options { o.SubSample -= (o.SubSample * fd); return o }, func(o *boo.Options) *boo.Options { o.SubSample += (o.SubSample * fd); return o }}
 
-	f["ColSubSample"] = [2]myf{func(o *Options) *Options { o.ColSubSample -= (o.ColSubSample * fd); return o }, func(o *Options) *Options { o.ColSubSample += (o.ColSubSample * fd); return o }}
+	f["ColSubSample"] = [2]myf{func(o *boo.Options) *boo.Options { o.ColSubSample -= (o.ColSubSample * fd); return o }, func(o *boo.Options) *boo.Options { o.ColSubSample += (o.ColSubSample * fd); return o }}
 
-	f["LearningRate"] = [2]myf{func(o *Options) *Options { o.LearningRate -= (o.LearningRate * fd); return o }, func(o *Options) *Options { o.LearningRate += (o.LearningRate * fd); return o }}
+	f["LearningRate"] = [2]myf{func(o *boo.Options) *boo.Options { o.LearningRate -= (o.LearningRate * fd); return o }, func(o *boo.Options) *boo.Options { o.LearningRate += (o.LearningRate * fd); return o }}
 
-	f["Rounds"] = [2]myf{func(o *Options) *Options { o.Rounds -= int(float64(o.Rounds) * fd); return o }, func(o *Options) *Options { o.Rounds += int(float64(o.Rounds) * fd); return o }}
+	f["Rounds"] = [2]myf{func(o *boo.Options) *boo.Options { o.Rounds -= int(float64(o.Rounds) * fd); return o }, func(o *boo.Options) *boo.Options { o.Rounds += int(float64(o.Rounds) * fd); return o }}
 
 	pO := f[param][1](O.Clone())
 	pluserr := make(chan error)
-	pluso := make(chan *Options)
+	pluso := make(chan *boo.Options)
 	plusacc := make(chan float64)
 	conc := &CVOptions{O: pO, Acc: plusacc, Err: pluserr, Ochan: pluso, Conc: true}
 	go MultiClassCrossValidation(D, nfold, conc)
 
 	var minerr chan error
-	var mino chan *Options
+	var mino chan *boo.Options
 	var minacc chan float64
 
 	if central {
@@ -141,7 +109,7 @@ func ParamaterGradStep(D *utils.DataBunch, Op *Options, CVO *CVGridOptions, para
 
 		}
 		minerr = make(chan error)
-		mino = make(chan *Options)
+		mino = make(chan *boo.Options)
 		minacc = make(chan float64)
 		conc := &CVOptions{O: mO, Acc: minacc, Err: minerr, Ochan: mino, Conc: true}
 		go MultiClassCrossValidation(D, nfold, conc)
@@ -202,7 +170,7 @@ func ParamaterGradStep(D *utils.DataBunch, Op *Options, CVO *CVGridOptions, para
 	return
 }
 
-func GradStep(Ori *Options, CVO *CVGridOptions, D *utils.DataBunch, step, fractiondelta float64, nfold int, central bool, out chan *Options) *Options {
+func GradStep(Ori *boo.Options, CVO *CVGridOptions, D *utils.DataBunch, step, fractiondelta float64, nfold int, central bool, out chan *boo.Options) *boo.Options {
 	O := Ori
 	if out != nil {
 		O = Ori.Clone()
@@ -216,7 +184,7 @@ func GradStep(Ori *Options, CVO *CVGridOptions, D *utils.DataBunch, step, fracti
 			return Ori
 		}
 	}
-	gm := map[string]chan *Options{"Gamma": make(chan *Options), "Lambda": make(chan *Options), "SubSample": make(chan *Options), "ColSubSample": make(chan *Options), "LearningRate": make(chan *Options), "Rounds": make(chan *Options)}
+	gm := map[string]chan *boo.Options{"Gamma": make(chan *boo.Options), "Lambda": make(chan *boo.Options), "SubSample": make(chan *boo.Options), "ColSubSample": make(chan *boo.Options), "LearningRate": make(chan *boo.Options), "Rounds": make(chan *boo.Options)}
 
 	for k, v := range gm {
 		go ParamaterGradStep(D, O, CVO, k, step, fractiondelta, curracc, nfold, central, v)
@@ -234,7 +202,7 @@ func GradStep(Ori *Options, CVO *CVGridOptions, D *utils.DataBunch, step, fracti
 
 }
 
-func setSomeOptionsToMid(o *Options, co *CVGridOptions) *Options {
+func setSomeOptionsToMid(o *boo.Options, co *CVGridOptions) *boo.Options {
 	av := func(i1, i2 float64) float64 { return (i1 + i2) / 2 }
 	avint := func(i1, i2 int) int { return (i1 + i2) / 2 }
 	o.Rounds = avint(co.Rounds[0], co.Rounds[1])
@@ -249,18 +217,18 @@ func setSomeOptionsToMid(o *Options, co *CVGridOptions) *Options {
 }
 
 // uses 5 gorutines.
-func GradientConcCVGrid(data *utils.DataBunch, nfold int, options ...*CVGridOptions) (float64, []float64, *Options, error) {
+func GradientConcCVGrid(data *utils.DataBunch, nfold int, options ...*CVGridOptions) (float64, []float64, *boo.Options, error) {
 	var o *CVGridOptions
 	if len(options) > 0 && options[0] != nil {
 		o = options[0]
 	} else {
 		o = DefaultXCVGridOptions()
 	}
-	defaultoptions := DefaultGOptions
+	defaultoptions := boo.DefaultGOptions
 	if o.XGB {
-		defaultoptions = DefaultXOptions
+		defaultoptions = boo.DefaultXOptions
 	}
-	var finaloptions *Options
+	var finaloptions *boo.Options
 	var accuracies []float64
 	//A bit less hellish than the other function
 	bestacc := 0.0
@@ -275,7 +243,7 @@ func GradientConcCVGrid(data *utils.DataBunch, nfold int, options ...*CVGridOpti
 			t.MinChildWeight = cw
 			t.XGB = o.XGB
 			tprev := t.Clone()
-			CompareAccs := func(t, tprev *Options) (*Options, error) {
+			CompareAccs := func(t, tprev *boo.Options) (*boo.Options, error) {
 				acc, err := MultiClassCrossValidation(data, 5, &CVOptions{O: t, Conc: false})
 				if err != nil {
 					return nil, err
@@ -336,7 +304,7 @@ func fuzz(f, fuzzperc float64) float64 {
 	return f + sign*fu*f
 }
 
-func fuzzOptions(O *Options, fuzzperc ...float64) *Options {
+func fuzzOptions(O *boo.Options, fuzzperc ...float64) *boo.Options {
 	f := 0.1
 	if len(fuzzperc) > 0 && fuzzperc[0] > 0 {
 		f = fuzzperc[0]
