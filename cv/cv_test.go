@@ -91,7 +91,7 @@ func TestCrossValGradGrid(Te *testing.T) {
 	o.NCPUs = 4
 	o.Step = 0.05
 
-	bestacc, accuracies, best, err := GradientConcCVGrid(data, 5, o)
+	bestacc, accuracies, best, err := GradientGrid(data, 5, o)
 	if err != nil {
 		Te.Error(err)
 	}

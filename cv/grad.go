@@ -53,7 +53,7 @@ func checkAgainstOptions(o *boo.Options, co *GridOptions) error {
 	return nil
 }
 
-func CurrentValue(O *boo.Options, param string) float64 {
+func currentValue(O *boo.Options, param string) float64 {
 	switch param {
 	case "Gamma":
 		return O.Gamma
@@ -122,7 +122,7 @@ func ParamaterGradStep(D *utils.DataBunch, Op *boo.Options, CVO *GridOptions, pa
 	if err != nil {
 		out <- O
 	}
-	h := fd * CurrentValue(O, param)
+	h := fd * currentValue(O, param)
 	if !central {
 		if h < 0 {
 			out <- O
@@ -217,7 +217,7 @@ func setSomeOptionsToMid(o *boo.Options, co *GridOptions) *boo.Options {
 }
 
 // uses 5 gorutines.
-func GradientConcCVGrid(data *utils.DataBunch, nfold int, options ...*GridOptions) (float64, []float64, *boo.Options, error) {
+func GradientGrid(data *utils.DataBunch, nfold int, options ...*GridOptions) (float64, []float64, *boo.Options, error) {
 	var o *GridOptions
 	if len(options) > 0 && options[0] != nil {
 		o = options[0]
