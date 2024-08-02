@@ -5,8 +5,8 @@
 
 ## Introduction
 
-Boo is a library that implements a tree-based gradient boosting
-and [extreme gradient boosting](https://github.com/dmlc/xgboost) ([reference](https://arxiv.org/abs/1603.02754)) for classification, in pure Go. 
+Boo is a library that implements tree-based gradient boosting
+and part of (see below)  [extreme gradient boosting](https://github.com/dmlc/xgboost) ([reference](https://arxiv.org/abs/1603.02754)) for classification, in pure Go. 
 
 # Features
 
