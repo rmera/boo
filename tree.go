@@ -274,6 +274,8 @@ func (T *Tree) feature(featurenames []string) string {
 	return featurenames[T.splitFeatureIndex]
 }
 
+// This function is heavily based on the equivalent from
+// https://github.com/sjwhitworth/golearn
 // Will try to print the tree recursively. Taken from golearn (thanks!)
 func (T *Tree) Print(spacing string, featurenames ...[]string) string {
 	var featnames []string
