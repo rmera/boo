@@ -24,6 +24,7 @@ reader for the libSVM format, and a reader for the CSV format), are provided.
 
 
 
+
 Both the regular gradient-boosting as well as the xgboost implementations are close ports/translations from the following Python implementations:
 
 * [Gradient boosting multi-class classification from scratch](https://randomrealizations.com/posts/gradient-boosting-multi-class-classification-from-scratch/)
@@ -38,7 +39,7 @@ by [Matt Bowers](https://github.com/mcb00)
 Many of these reflect the fact that I mostly work with rather small, dense datasets. 
 
 * There are only exact trees, and no sparsity-awareness.
-* Several other features in the XGBoost library are absent.
+* Some features in the XGBoost library are absent (mainly, L1 regularization).
 * In general, computational performance is not a top priority for this project, though of course it would be nice.
 * As mentioned above, the libSVM reading support is very basic. 
 * Only classification is supported. Still, since its  multi-class classification using one-hot-encoding, and the "activation function" (softmax by default) can be changed, I suspect you can trick the function into doing regression by giving one class and an activation function that does nothing.
