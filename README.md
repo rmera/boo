@@ -65,16 +65,20 @@ import (
 	"github.com/rmera/boo/utils"
 )
     func main(){
+
+    //This reads the data into a 'DataBunch', which is a pretty simple
+    //structure.
 	data, err := utils.DataBunchFromLibSVMFile("../tests/train.svm", true)
 	if err != nil {
 		panic(err)
 	}
-	O := boo.DefaultOptions()
+	O := boo.DefaultOptions() //The boosting options, we'll just use
+    //the defaults here.
     
     boosted := boo.NewMultiClass(data, O) //Trains a boosted ensemble.
 	fmt.Println("train set accuracy", boosted.Accuracy(data))
 
-    //the function continues in the next block
+    //The main function continues in the next block
 
 ```
 ## Cross-validation grid search for hyperparameters
@@ -85,7 +89,13 @@ your computing power and the search space.
 
 ```go
 
-	o := cv.DefaultXGridOptions()
+	o := cv.DefaultXGridOptions() //The grid-search options.
+    //not to be confused with the Boosting options.
+    //In the grid-search options, for each parameter, 
+    //the search space is given by a 3-elements array: 
+    // Minimum values, maximum value and step, in that order.
+
+
     //This is a very small, not realistic, search space.
 	o.Rounds = [3]int{5, 30, 5}
 	o.MaxDepth = [3]int{3, 4, 1}
@@ -102,7 +112,7 @@ your computing power and the search space.
 	fmt.Printf("With %d rounds, %d maxdepth and %.3f learning rate\n", best.Rounds, best.MaxDepth, best.LearningRate)
 	fmt.Println("All accuracies:", accuracies)
     
-    // The function continues in the next block.
+    // The main function continues in the next block.
 
 ```
 
