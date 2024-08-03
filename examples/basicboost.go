@@ -49,4 +49,10 @@ func main() {
 	fmt.Println(best)
 	fmt.Println("All accuracies:", accuracies)
 
+	//I made this one up, but say this is a sample you want to classify.
+	sample := []float64{0.000, 12, 100, 0.0000, 0.009, 0.00, -1., -9.0, 0.010, 60, 0.0337, 0.000, 0.08, 0.02, 0.000, 0.0180, 0.000, 120, 37.2911, 85.0, 650.5}
+	boosted = boo.NewMultiClass(data, best)
+	class := boosted.PredictSingleClass(sample)       //get a prediction
+	fmt.Println("Data is assigned to class", class+1) //Class 0 is the first one, so I added 1 to make it look nicer.
+
 }

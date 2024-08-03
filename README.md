@@ -8,7 +8,7 @@
 Boo is a library that implements tree-based gradient boosting
 and part of (see below)  [extreme gradient boosting](https://github.com/dmlc/xgboost) ([reference](https://arxiv.org/abs/1603.02754)) for classification, in pure Go. 
 
-# Features
+## Features
 
 
 * Simple implementation and data format. It's quite easy for any program to put the data into Boo "Databunch" format.
@@ -49,12 +49,12 @@ Many of these reflect the fact that I mostly work with rather small, dense datas
 On the last point, there is a preliminar, and quite naive version that uses a simple, numerical gradient-based routine to 
 search for parameters.
 
-# Using Boo
+## Using Boo
 
 The use itself is pretty simple, but you do need to set several hyperparameters. 
 The defaults are not -I think- outrageously bad, but the right ones will depend on your system.
 
-## Basic use
+### Basic use
 
 ```go
 import (
@@ -81,7 +81,7 @@ import (
     //The main function continues in the next block
 
 ```
-## Cross-validation grid search for hyperparameters
+### Cross-validation grid search for hyperparameters
 
 This is a way of selecting the optimal value for the hyperparameters.
 It's a very brute-force approach, but might be doable depending on your data,
@@ -116,7 +116,7 @@ your computing power and the search space.
 
 ```
 
-## Gradient-based search (work in progress)
+### Gradient-based search (work in progress)
 
 Finally, a somewhat less brute-force approach involves trying to go up the gradient in the hyper-parameter space.
 I'm still working on this one.
@@ -133,9 +133,24 @@ I'm still working on this one.
 	fmt.Printf("With %d rounds, %d maxdepth and %.3f learning rate\n", best.Rounds, best.MaxDepth, best.LearningRate)
 	fmt.Println(best)
 	fmt.Println("All accuracies:", accuracies)
-}
+
+    //The main function continues in the next block
+```
+
+### Making predictions
 
 ```
+	//I made this one up, but say this is a sample you want to classify.
+	sample := []float64{0.000, 12, 100, 0.0000, 0.009, 0.00, -1., -9.0, 0.010, 60, 0.0337, 0.000, 0.08, 0.02, 0.000, 0.0180, 0.000, 120, 37.2911, 85.0, 650.5}
+
+	boosted = boo.NewMultiClass(data, best) //Generate an ensemble with the best parameters found by the gradient search.
+	class := boosted.PredictSingleClass(sample)       //get a prediction
+	fmt.Println("Data is assigned to class", class+1) //Class 0 is the first one, so I added 1 to make it look nicer.
+
+}
+```
+
+
 
 
 # On machine learning
