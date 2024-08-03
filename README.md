@@ -139,7 +139,7 @@ I'm still working on this one.
 
 ### Making predictions
 
-```
+```go
 	//I made this one up, but say this is a sample you want to classify.
 	sample := []float64{0.000, 12, 100, 0.0000, 0.009, 0.00, -1., -9.0, 0.010, 60, 0.0337, 0.000, 0.08, 0.02, 0.000, 0.0180, 0.000, 120, 37.2911, 85.0, 650.5}
 
