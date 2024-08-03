@@ -214,3 +214,42 @@ func TestConcCrossValGGBoostGrid(Te *testing.T) {
 	acc := b.Accuracy(testdata)
 	fmt.Printf("Test accuracy: %.3f\n", acc)
 }
+
+func TestHybridGradGrid(Te *testing.T) {
+	data, err := utils.DataBunchFromLibSVMFile("../tests/train.svm", true)
+	if err != nil {
+		Te.Error(err)
+	}
+	testdata, err := utils.DataBunchFromLibSVMFile("../tests/test.svm", true)
+	if err != nil {
+		Te.Error(err)
+	}
+	o := DefaultXGridOptions()
+	o.Rounds = [3]int{50, 550, 100}
+	o.MaxDepth = [3]int{3, 5, 1}
+	o.Lambda = [3]float64{0, 20, 5}
+	o.LearningRate = [3]float64{0.1, 0.6, 0.1}
+	o.Gamma = [3]float64{0.0, 0.9, 0.1}
+	o.SubSample = [3]float64{0.1, 0.9, 0.1}
+	o.ColSubSample = [3]float64{0.1, 0.9, 0.1}
+	o.MinChildWeight = [3]float64{2, 6, 2}
+	o.DeltaFraction = 0.01
+	o.Central = false //////////////////////////
+	o.Verbose = true
+	o.NSteps = 100
+	o.NCPUs = 4
+	o.Step = 0.05
+
+	bestacc, accuracies, best, err := HybridGradientGrid(data, 5, o)
+	if err != nil {
+		Te.Error(err)
+	}
+	fmt.Println("Crossvalidation best accuracy:", bestacc)
+	fmt.Printf("With %d rounds, %d maxdepth and %.3f learning rate\n", best.Rounds, best.MaxDepth, best.LearningRate)
+	fmt.Println(best)
+	fmt.Println("All accuracies:", accuracies)
+
+	b := boo.NewMultiClass(data, best)
+	acc := b.Accuracy(testdata)
+	fmt.Printf("Test accuracy: %.3f\n", acc)
+}

@@ -70,6 +70,26 @@ type GridOptions struct {
 	NCPUs          int
 }
 
+func (o *GridOptions) Clone() *GridOptions {
+	ret := new(GridOptions)
+	ret.XGB = o.XGB
+	ret.Rounds = o.Rounds
+	ret.MaxDepth = o.MaxDepth
+	ret.LearningRate = o.LearningRate
+	ret.Gamma = o.Gamma
+	ret.Lambda = o.Lambda
+	ret.SubSample = o.SubSample
+	ret.ColSubSample = o.ColSubSample
+	ret.MinChildWeight = o.MinChildWeight
+	ret.Step = o.Step
+	ret.DeltaFraction = o.DeltaFraction
+	ret.NSteps = o.NSteps
+	ret.Central = o.Central
+	ret.Verbose = o.Verbose
+	ret.NCPUs = o.NCPUs
+	return ret
+}
+
 // Default options for crossvalidation grid search for
 // gradient boosting hyperparameters. Note that these are not
 // necessarily good choices. These defaults are NOT considered part of the API
