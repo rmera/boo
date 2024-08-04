@@ -1,5 +1,8 @@
 package boo
 
+// Based on the python code in https://randomrealizations.com/
+// by Matt Bowers (https://github.com/mcb00)
+
 import (
 	"fmt"
 

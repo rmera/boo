@@ -2,6 +2,9 @@ package boo
 
 // Copyright (c) 2024 Raul Mera A.
 
+// Based on the python code in https://randomrealizations.com/
+// by Matt Bowers (https://github.com/mcb00)
+
 import (
 	"fmt"
 	"math"
