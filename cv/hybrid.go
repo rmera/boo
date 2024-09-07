@@ -23,8 +23,8 @@ func HybridGradientGrid(data *utils.DataBunch, nfold int, options ...*GridOption
 	var accuracies []float64
 	//A bit less hellish than the other function
 	bestacc := 0.0
-	for cw := o.MinChildWeight[0]; cw <= o.MinChildWeight[1]; cw += o.MinChildWeight[2] {
-		for rounds := o.Rounds[0]; rounds <= o.Rounds[1]; rounds += o.Rounds[2] {
+	for rounds := o.Rounds[0]; rounds <= o.Rounds[1]; rounds += o.Rounds[2] {
+		for cw := o.MinChildWeight[0]; cw <= o.MinChildWeight[1]; cw += o.MinChildWeight[2] {
 			if o.Verbose {
 				fmt.Println("Rounds: ", rounds, "MinChildWeight:", cw)
 			}

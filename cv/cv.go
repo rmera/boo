@@ -173,8 +173,8 @@ func Grid(data *utils.DataBunch, nfold int, options ...*GridOptions) (float64, [
 	}
 	//welcome to nested-hell. Sorry.
 	cpus := 0
-	for cw := o.MinChildWeight[0]; cw <= o.MinChildWeight[1]; cw += o.MinChildWeight[2] {
-		for rounds := o.Rounds[0]; rounds <= o.Rounds[1]; rounds += o.Rounds[2] {
+	for rounds := o.Rounds[0]; rounds <= o.Rounds[1]; rounds += o.Rounds[2] {
+		for cw := o.MinChildWeight[0]; cw <= o.MinChildWeight[1]; cw += o.MinChildWeight[2] {
 			if o.Verbose {
 				fmt.Println("Rounds: ", rounds, "MinChildWeight:", cw)
 			}

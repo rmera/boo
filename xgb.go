@@ -105,7 +105,7 @@ func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 			}
 			if O.EarlyStop > 0 {
 				epsilon := 1e-6
-				if currloss >= epsilon {
+				if currloss <= epsilon {
 					stopped[k] = true
 					continue
 				}
