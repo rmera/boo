@@ -11,10 +11,10 @@ import (
 )
 
 // MultiClass is a multi-class gradient-boosted (xgboost or "regular")
-// classification ensamble.
+// classification ensemble.
 type MultiClass struct {
 	b             [][]*Tree
-	utilsingRate  float64
+	learningRate  float64
 	classLabels   []int
 	probTransform func(*mat.Dense, *mat.Dense) *mat.Dense
 	tmp           []float64
@@ -42,15 +42,25 @@ func (M *MultiClass) Accuracy(D *utils.DataBunch, classes ...int) float64 {
 
 }
 
-// Returns the number of "rounds" per class, in the first class (they might not be all the same)
-func (M *MultiClass) Rounds() int {
-	if M.Classes() == 0 {
-		return 0
+// Returns the number of "rounds" per class, in the given class,
+// or, if no argument is given, in the first one (the rounds might not be all the same in all classes)
+// ir the class index given is out of range, Rounds returns -1.
+func (M *MultiClass) Rounds(class ...int) int {
+	c := 0
+	if len(class) > 0 && class[0] >= 0 {
+		c = class[0]
 	}
-	return len(M.b[0])
+	//	println(len(M.b), c) /////////////////////////
+	if M.Classes() < c || len(M.b) <= c {
+		//println(len(M.b), c, M.Classes(), "v2") /////////////////////////
+
+		return -1
+	}
+	return len(M.b[c])
 }
 
-// Returns the number of classes
+// Returns the number of classes, i.e. the number of categories to which
+// each data vector could belong.
 func (M *MultiClass) Classes() int {
 	return len(M.b)
 }
@@ -81,7 +91,7 @@ func (M *MultiClass) PredictSingle(instance []float64, predictions ...[]float64)
 	}
 	for _, ensemble := range M.b {
 		for class, tree := range ensemble {
-			tmp[class] += tree.PredictSingle(instance) * M.utilsingRate
+			tmp[class] += tree.PredictSingle(instance) * M.learningRate
 		}
 	}
 	O := mat.NewDense(1, len(tmp), tmp)
