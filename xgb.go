@@ -35,6 +35,8 @@ func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 	if O.MinChildWeight < 1 {
 		O.MinChildWeight = 1
 	}
+	tin := make([]int, len(D.Data))
+	tval := make([]float64, len(D.Data))
 	probs := utils.SoftMaxDense(rawPred, nil)
 	grads := mat.NewDense(1, r, nil)
 	hess := mat.NewDense(1, r, nil)
@@ -77,9 +79,13 @@ func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 				tOpts.Gradients = grads.RawRowView(0)
 				tOpts.Hessian = hess.RawRowView(0)
 				tOpts.Y = kthlabelvector.RawRowView(0)
+				tOpts.in = tin
+				tOpts.val = tval
 				tree = NewTree(D.Data, tOpts)
 			} else {
 				tOpts = DefaultGTreeOptions()
+				tOpts.in = tin
+				tOpts.val = tval
 				tOpts.MinChildWeight = O.MinChildWeight
 				tOpts.MaxDepth = O.MaxDepth
 				grads = O.Loss.NegGradients(kthlabelvector, kthprobs, grads)
@@ -124,7 +130,7 @@ func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 		}
 		boosters = append(boosters, classes)
 	}
-	return &MultiClass{b: boosters, utilsingRate: O.LearningRate, probTransform: utils.SoftMaxDense, classLabels: differentlabels, baseScore: O.BaseScore, xgb: O.XGB}
+	return &MultiClass{b: boosters, learningRate: O.LearningRate, probTransform: utils.SoftMaxDense, classLabels: differentlabels, baseScore: O.BaseScore, xgb: O.XGB}
 
 }
 

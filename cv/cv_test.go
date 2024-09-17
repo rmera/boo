@@ -186,6 +186,27 @@ func TestCrossValXGBoostGrid(Te *testing.T) {
 	fmt.Printf("Test accuracy: %.3f\n", acc)
 }
 
+func BenchmarkCrossValXGBoostGrid(b *testing.B) {
+	data, err := utils.DataBunchFromLibSVMFile("../tests/train.svm", true)
+	if err != nil {
+		b.Error(err)
+	}
+	o := DefaultXGridOptions()
+	o.Rounds = [3]int{2, 5, 2}
+	o.MaxDepth = [3]int{2, 3, 1}
+	o.LearningRate = [3]float64{0.1, 0.2, 0.1}
+	o.SubSample = [3]float64{0.8, 0.9, 0.1}
+	o.MinChildWeight = [3]float64{2, 4, 2}
+	o.Verbose = true
+	o.NCPUs = 2
+	for i := 0; i < b.N; i++ {
+		_, _, _, err := Grid(data, 5, o)
+		if err != nil {
+			b.Error(err)
+		}
+	}
+}
+
 func TestConcCrossValGGBoostGrid(Te *testing.T) {
 	data, err := utils.DataBunchFromLibSVMFile("../tests/train.svm", true)
 	if err != nil {

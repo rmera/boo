@@ -48,6 +48,8 @@ type TreeOptions struct {
 	Gradients       []float64
 	Hessian         []float64
 	Y               []float64
+	in              []int
+	val             []float64
 	MaxDepth        int
 	Indexes         []int
 }
@@ -58,12 +60,12 @@ func (t *Tree) debug(o *TreeOptions, v ...any) {
 	}
 }
 
-//move these 2 to each package
-
+// Returns the default options for a "regular" (not "extreme") boosting tree
 func DefaultGTreeOptions() *TreeOptions {
 	return &TreeOptions{MinChildWeight: 1, Indexes: nil, MaxDepth: 4, XGB: false}
 }
 
+// Returns the default options for an extreme boosting tree
 func DefaultXTreeOptions() *TreeOptions {
 	return &TreeOptions{MinChildWeight: 1, Lambda: 1.0, Gamma: 1.0, ColSampleByNode: 1.0, Indexes: nil, MaxDepth: 4, XGB: true}
 }
@@ -85,6 +87,7 @@ func (T *TreeOptions) clone() *TreeOptions {
 	return ret
 }
 
+// Returns a new tree for the data X and options o
 func NewTree(X [][]float64, o *TreeOptions) *Tree {
 	ret := &Tree{}
 	if o.XGB {
@@ -118,7 +121,10 @@ func NewTree(X [][]float64, o *TreeOptions) *Tree {
 	ret.branches = 1
 
 	if o.MaxDepth > 0 {
+		//	println("MaxDepth", o.MaxDepth)
 		ret.maybeInsertChildNode(o)
+	} else {
+		//	println("Max depth reached!", o.MaxDepth)
 	}
 	return ret
 }
@@ -151,6 +157,13 @@ func (T *Tree) maybeInsertChildNode(o *TreeOptions) {
 	oright := oleft.clone()
 	oleft.Indexes = indexleft
 	oright.Indexes = indexright
+	//NOTE: his would cause a data race if the trees were created
+	//concurrently, which, as of now, they are not.
+	oleft.in = o.in
+	oleft.val = o.val
+	oright.in = o.in
+	oright.val = o.val
+	//end note
 	T.left = NewTree(T.x, oleft)
 	T.branches += T.left.branches
 	T.right = NewTree(T.x, oright)
@@ -161,7 +174,9 @@ func (T *Tree) findBetterSplit(featureIndex int, o *TreeOptions) {
 	//	fmt.Println(T.x, o.Indexes, featureIndex) /////////////////////
 	x := utils.SampleMatrix(T.x, o.Indexes, []int{featureIndex})
 	xt := utils.TransposeFloats(x) //x is a col vector
-	sorted_indexes, sortx := utils.ArgSort(xt[0])
+	in := o.in[0:len(xt[0])]
+	val := o.val[0:len(xt[0])]
+	sorted_indexes, sortx := utils.MemArgSort(xt[0], in, val)
 	var xi, xinext, yi, gi, hi float64
 	var g, h, sortg, sorth, ypart, sorty []float64
 	var sumg, sumh, sumhRight, sumhLeft float64
@@ -231,9 +246,12 @@ func (T *Tree) findBetterSplit(featureIndex int, o *TreeOptions) {
 	}
 }
 
+// Returns the number of branches in the tree
 func (T *Tree) Branches() int {
 	return T.branches
 }
+
+// Returns true if the node is a leaf, false otherwise.
 func (T *Tree) Leaf() bool {
 	if T.xgb {
 		//	fmt.Println("return for xgb", T.bestScoreSoFar == 0) ////////////
@@ -245,6 +263,8 @@ func (T *Tree) Leaf() bool {
 	}
 }
 
+// Predicts a value for each data vector. If preds is not nil, predicted values
+// are stored there.
 func (T *Tree) Predict(data [][]float64, preds []float64) []float64 {
 	if preds == nil {
 		preds = make([]float64, len(data))
@@ -255,6 +275,7 @@ func (T *Tree) Predict(data [][]float64, preds []float64) []float64 {
 	return preds
 }
 
+// Predicts a value for a single data vector.
 func (T *Tree) PredictSingle(row []float64) float64 {
 	if T.Leaf() {
 		return T.value
@@ -277,9 +298,9 @@ func (T *Tree) feature(featurenames []string) string {
 	return featurenames[T.splitFeatureIndex]
 }
 
+// Returns a text representation of the tree (uses several lines)
 // This function is heavily based on the equivalent from
 // https://github.com/sjwhitworth/golearn
-// Will try to print the tree recursively. Taken from golearn (thanks!)
 func (T *Tree) Print(spacing string, featurenames ...[]string) string {
 	var featnames []string
 	if len(featurenames) > 0 {
@@ -308,6 +329,8 @@ func (T *Tree) Print(spacing string, featurenames ...[]string) string {
 	return returnString
 }
 
+// Feats represents a set of features and their associated gains in a tree
+// Implements sort.Sort, so the features can be sorted by gain.
 type Feats struct {
 	xgb   bool
 	feat  []int
@@ -319,6 +342,8 @@ func NewFeats(xgboost bool) *Feats {
 	return &Feats{feat: make([]int, 0, 1), gains: make([]float64, 0, 1), xgb: xgboost}
 }
 
+// Adds a feature,gain pair to the f set. This operation
+// is concurrency-safe.
 func (f *Feats) Add(feature int, gain float64) {
 	index := slices.Index(f.feat, feature)
 	if index >= 0 {
@@ -334,6 +359,7 @@ func (f *Feats) Add(feature int, gain float64) {
 	return
 }
 
+// Merges the given feature set into the receiver.
 func (f *Feats) Merge(f2 *Feats) {
 	for i, v := range f2.feat {
 		f.Add(v, f2.gains[i])
@@ -368,7 +394,7 @@ func (f *Feats) String() string {
 	return strings.Join(ret, "\n")
 }
 
-// returns a string with a list of the features, in descending order of importance, and their scores.
+// Returns a string with a list of the features, in descending order of importance, and their scores.
 func (T *Tree) FeatureImportance(xgboost bool, gains ...*Feats) (*Feats, error) {
 	if T.Leaf() {
 		if len(gains) == 0 {

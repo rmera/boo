@@ -51,6 +51,18 @@ func (s *idSorter) Swap(i, j int) {
 
 // Returns the indexes that would sort the given slice
 // and also the sorted slice. It doesn't touch the original slice!
+func MemArgSort(a []float64, in []int, val []float64) ([]int, []float64) {
+	for i, v := range a {
+		in[i] = i  // = append(in, i)
+		val[i] = v // = append(val, v)
+	}
+	r := &idSorter{i: in, a: val}
+	sort.Sort(r)
+	return r.i, r.a
+}
+
+// Returns the indexes that would sort the given slice
+// and also the sorted slice. It doesn't touch the original slice!
 func ArgSort(a []float64) ([]int, []float64) {
 	in := make([]int, 0, len(a))
 	val := make([]float64, 0, len(a))

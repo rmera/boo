@@ -33,7 +33,7 @@ func MultiClassCrossValidation(D *utils.DataBunch, nfold int, opts *Options) (fl
 		} else {
 			b = boo.NewMultiClass(train, opts.O)
 		}
-		if b.Rounds() == 0 {
+		if b.Rounds() <= 0 {
 			log.Printf("The %d-th fold didn't produce a boosting ensemble, will continue with the others", n)
 
 			continue

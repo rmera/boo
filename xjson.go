@@ -45,7 +45,7 @@ func UnJSONMultiClass(r *bufio.Reader) (*MultiClass, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error unmarshalling metadata: %v", err)
 	}
-	ret.utilsingRate = jmc.LearningRate
+	ret.learningRate = jmc.LearningRate
 	ret.classLabels = jmc.ClassLabels
 	ret.probTransform = ProbTransformMap[jmc.ProbTransformName]
 	ret.baseScore = jmc.BaseScore
@@ -137,7 +137,7 @@ type JSONMetaData struct {
 
 func MarshalMCMetaData(m *MultiClass, probtransformname string) ([]byte, error) {
 	r := &JSONMetaData{
-		LearningRate:      m.utilsingRate,
+		LearningRate:      m.learningRate,
 		ClassLabels:       m.classLabels,
 		ProbTransformName: probtransformname,
 		BaseScore:         m.baseScore,

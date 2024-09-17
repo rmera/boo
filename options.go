@@ -41,7 +41,7 @@ func DefaultXOptions() *Options {
 	O.LearningRate = 0.3
 	O.BaseScore = 0.5
 	O.TreeMethod = "exact"
-	O.EarlyStop = 10
+	O.EarlyStop = 5
 	O.Loss = &utils.SQErrLoss{}
 	O.Verbose = false //just for clarity
 	O.MinSample = 5
