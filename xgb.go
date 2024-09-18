@@ -7,6 +7,7 @@ package boo
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"math/rand/v2"
 
@@ -119,10 +120,17 @@ func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 					prevloss[k] = currloss
 					continue
 				}
+				//	fmt.Println("losses", prevloss[k], currloss, roundsNoProgress[k], k) ///////////////
 				if prevloss[k] <= currloss {
 					roundsNoProgress[k]++
+				} else {
+					roundsNoProgress[k] = 0
+
 				}
 				if roundsNoProgress[k] >= O.EarlyStop {
+					if O.Verbose {
+						log.Println("Class", k, "stopped early at round", round)
+					}
 					stopped[k] = true
 				}
 				prevloss[k] = currloss

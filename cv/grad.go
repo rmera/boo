@@ -261,6 +261,9 @@ func GradientGrid(data *utils.DataBunch, nfold int, options ...*GridOptions) (fl
 					accuracies = append(accuracies, acc)
 					finaloptions = t
 					bestacc = acc
+					if o.WriteBest {
+						writeBest(data, bestacc, finaloptions)
+					}
 				}
 				return t, nil
 			}

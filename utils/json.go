@@ -49,7 +49,7 @@ func (g *idGiver) Next() uint {
 
 // A tree that can "pack" itself as a JSONNode
 type JTree interface {
-	JNode(uint) *JSONNode
+	JNode(uint, ...bool) *JSONNode
 	//sets the left or right node to the given JTree and return it
 	//if given nil, just returns the current value for the node
 	Leftf(JTree) JTree

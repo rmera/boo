@@ -1,8 +1,10 @@
 package cv
 
 import (
+	"bufio"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/rmera/boo"
 	"github.com/rmera/boo/utils"
@@ -54,6 +56,7 @@ func MultiClassCrossValidation(D *utils.DataBunch, nfold int, opts *Options) (fl
 // in all cases the 3 numbers are: initial, final, step
 type GridOptions struct {
 	XGB            bool
+	EarlyStop      int
 	Rounds         [3]int
 	MaxDepth       [3]int
 	LearningRate   [3]float64
@@ -68,10 +71,13 @@ type GridOptions struct {
 	NSteps         int
 	Central        bool
 	NCPUs          int
+	WriteBest      bool
 }
 
 func (o *GridOptions) Clone() *GridOptions {
 	ret := new(GridOptions)
+	ret.WriteBest = o.WriteBest
+	ret.EarlyStop = o.EarlyStop
 	ret.XGB = o.XGB
 	ret.Rounds = o.Rounds
 	ret.MaxDepth = o.MaxDepth
@@ -108,6 +114,7 @@ func DefaultGGridOptions() *GridOptions {
 	ret.SubSample = [3]float64{1, 1, 2}
 	ret.ColSubSample = [3]float64{1, 1, 2}
 	ret.Verbose = false
+	ret.EarlyStop = boo.DefaultGOptions().EarlyStop
 	return ret
 }
 
@@ -129,7 +136,7 @@ func DefaultXGridOptions() *GridOptions {
 	ret.DeltaFraction = 0.05
 	ret.NSteps = 6
 	ret.Central = true
-
+	ret.EarlyStop = boo.DefaultXOptions().EarlyStop
 	ret.Verbose = false
 	ret.NCPUs = 1
 	return ret
@@ -195,12 +202,13 @@ func Grid(data *utils.DataBunch, nfold int, options ...*GridOptions) (float64, [
 									t.SubSample = ss
 									t.MinChildWeight = cw
 									t.XGB = o.XGB
+									t.EarlyStop = o.EarlyStop
 									conc := &Options{O: t, Acc: accs[cpus], Err: errs[cpus], Ochan: os[cpus], Conc: true}
 									go MultiClassCrossValidation(data, nfold, conc)
 									cpus++
 									if cpus == o.NCPUs {
 										var err error
-										bestacc, finaloptions, err = rescueConcValues(errs, accs, os, bestacc, finaloptions, o.Verbose)
+										bestacc, finaloptions, err = rescueConcValues(errs, accs, os, bestacc, finaloptions, o.Verbose, o.WriteBest, data)
 
 										if err != nil {
 											return -1, nil, nil, err
@@ -221,7 +229,7 @@ func Grid(data *utils.DataBunch, nfold int, options ...*GridOptions) (float64, [
 }
 
 // Rescues cross-validation results from the given channels (errors, accuracy and the corresponding boosting options)
-func rescueConcValues(errors []chan error, accs []chan float64, opts []chan *boo.Options, bestacc float64, bestop *boo.Options, verbose bool) (float64, *boo.Options, error) {
+func rescueConcValues(errors []chan error, accs []chan float64, opts []chan *boo.Options, bestacc float64, bestop *boo.Options, verbose bool, writebest bool, data *utils.DataBunch) (float64, *boo.Options, error) {
 	var err error
 	var tmpacc float64
 	var tmpop *boo.Options
@@ -241,8 +249,28 @@ func rescueConcValues(errors []chan error, accs []chan float64, opts []chan *boo
 			if verbose {
 				fmt.Printf("New Best Accuracy %.0f%%, %s\n", bestacc, bestop.String())
 			}
+			if writebest {
+				_ = writeBest(data, bestacc, bestop)
+			}
 		}
 	}
 	return bestacc, bestop, nil
 
+}
+
+func writeBest(data *utils.DataBunch, bestacc float64, bestop *boo.Options) error {
+	name := fmt.Sprintf("xgbmodel%d.json", int(bestacc))
+	f, err := os.Create(name)
+	if err != nil {
+		return err
+	}
+	boosted := boo.NewMultiClass(data, bestop)
+	bf := bufio.NewWriter(f)
+	err = boo.JSONMultiClass(boosted, "softmax", bf)
+	if err != nil {
+		return err
+	}
+	bf.Flush()
+	f.Close()
+	return nil
 }

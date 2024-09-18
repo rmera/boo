@@ -44,6 +44,7 @@ func HybridGradientGrid(data *utils.DataBunch, nfold int, options ...*GridOption
 					t.MaxDepth = md
 					t.MinChildWeight = cw
 					t.XGB = o.XGB
+					t.EarlyStop = o.EarlyStop
 
 					tprev := t.Clone()
 					CompareAccs := func(t, tprev *boo.Options) (*boo.Options, error) {
@@ -61,6 +62,9 @@ func HybridGradientGrid(data *utils.DataBunch, nfold int, options ...*GridOption
 							accuracies = append(accuracies, acc)
 							finaloptions = t
 							bestacc = acc
+							if o.WriteBest {
+								writeBest(data, bestacc, finaloptions)
+							}
 						}
 						return t, nil
 					}

@@ -102,6 +102,12 @@ func NewTree(X [][]float64, o *TreeOptions) *Tree {
 			o.Indexes = append(o.Indexes, i)
 		}
 	}
+	if o.in == nil {
+		o.in = make([]int, len(o.Indexes))
+	}
+	if o.val == nil {
+		o.val = make([]float64, len(o.Indexes))
+	}
 	ret.samples = o.Indexes
 	ret.grads = o.Gradients
 	ret.hess = o.Hessian

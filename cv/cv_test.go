@@ -8,6 +8,39 @@ import (
 	"github.com/rmera/boo/utils"
 )
 
+func TestCrossValXBoostEarlyStop(Te *testing.T) {
+	data, err := utils.DataBunchFromLibSVMFile("../tests/train.svm", true)
+	if err != nil {
+		Te.Error(err)
+	}
+
+	testdata, err := utils.DataBunchFromLibSVMFile("../tests/test.svm", true)
+	if err != nil {
+		Te.Error(err)
+	}
+
+	O := new(boo.Options)
+	O.XGB = true
+	O.Rounds = 500
+	O.SubSample = 0.9
+	O.Lambda = 1.1
+	O.Gamma = 0.1
+	O.MinChildWeight = 2
+	O.MaxDepth = 3
+	O.LearningRate = 0.2
+	O.BaseScore = 0.5
+	O.TreeMethod = "exact"
+	O.EarlyStop = 5
+	O.Verbose = true
+	O.Loss = &utils.SQErrLoss{}
+	//87%, 50 r/3 md/0.200 lr/0.900 ss/0.500 bs/0.100 gam/1.100 lam/2.000 mcw/
+	acc, err := MultiClassCrossValidation(data, 8, &Options{O: O, Conc: false})
+	fmt.Println("Crossvalidation best accuracy:", acc)
+	b := boo.NewMultiClass(data, O)
+	acc = b.Accuracy(testdata)
+	fmt.Printf("Test accuracy: %.3f\n", acc)
+}
+
 func TestCrossValXBoost(Te *testing.T) {
 	data, err := utils.DataBunchFromLibSVMFile("../tests/train.svm", true)
 	if err != nil {
@@ -76,13 +109,13 @@ func TestCrossValGradGrid(Te *testing.T) {
 		Te.Error(err)
 	}
 	o := DefaultXGridOptions()
-	o.Rounds = [3]int{50, 500, 10}
+	o.Rounds = [3]int{50, 200, 50}
 	o.MaxDepth = [3]int{3, 5, 1}
 	o.Lambda = [3]float64{0, 20, 1}
-	o.LearningRate = [3]float64{0.1, 0.6, 0.1}
-	o.Gamma = [3]float64{0.0, 0.9, 0.1}
-	o.SubSample = [3]float64{0.1, 0.9, 0.1}
-	o.ColSubSample = [3]float64{0.1, 0.9, 0.1}
+	o.LearningRate = [3]float64{0.1, 0.3, 0.1}
+	o.Gamma = [3]float64{0.0, 0.9, 0.3}
+	o.SubSample = [3]float64{0.1, 0.9, 0.3}
+	o.ColSubSample = [3]float64{0.1, 0.9, 0.3}
 	o.MinChildWeight = [3]float64{2, 6, 2}
 	o.DeltaFraction = 0.01
 	o.Central = false //////////////////////////
@@ -111,14 +144,14 @@ func TestGradStep(Te *testing.T) {
 		Te.Error(err)
 	}
 	o := DefaultXGridOptions()
-	o.Rounds = [3]int{10, 100, 10}
+	o.Rounds = [3]int{10, 110, 50}
 	o.MaxDepth = [3]int{3, 5, 1}
-	o.Lambda = [3]float64{0, 20, 1}
+	o.Lambda = [3]float64{0, 10, 1}
 	o.LearningRate = [3]float64{0.1, 0.6, 0.1}
 	o.Gamma = [3]float64{0.0, 0.9, 0.1}
 	o.SubSample = [3]float64{0.1, 1, 0.1}
 	o.ColSubSample = [3]float64{0.1, 1, 0.1}
-	o.MinChildWeight = [3]float64{2, 6, 2}
+	o.MinChildWeight = [3]float64{3, 5, 2}
 	o.Central = false //////////////////////////
 	o.Verbose = true
 	o.NCPUs = 4
@@ -173,6 +206,7 @@ func TestCrossValXGBoostGrid(Te *testing.T) {
 	o.MinChildWeight = [3]float64{2, 6, 2}
 	o.Verbose = true
 	o.NCPUs = 2
+	o.WriteBest = true
 	bestacc, accuracies, best, err := Grid(data, 8, o)
 	if err != nil {
 		Te.Error(err)
@@ -260,6 +294,7 @@ func TestHybridGradGrid(Te *testing.T) {
 	o.NSteps = 100
 	o.NCPUs = 4
 	o.Step = 0.05
+	o.WriteBest = true
 
 	bestacc, accuracies, best, err := HybridGradientGrid(data, 5, o)
 	if err != nil {

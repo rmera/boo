@@ -18,6 +18,8 @@ func TestGTree(Te *testing.T) {
 	opts := DefaultGTreeOptions()
 	opts.MaxDepth = 10
 	opts.MinChildWeight = 1
+	opts.in = make([]int, len(data.Data))
+	opts.val = make([]float64, len(data.Data))
 	targets, names := data.OHELabels()
 	target := utils.DenseCol(targets, 0)
 	fmt.Println("Prob for label", names[0], utils.PrintDenseMatrix(targets), target.RawRowView(0))
@@ -122,6 +124,9 @@ func TestXTree(Te *testing.T) {
 	if err != nil {
 		Te.Error(err)
 	}
+	o.in = make([]int, len(data.Data))
+	o.val = make([]float64, len(data.Data))
+
 	ohelabels, _ := data.OHELabels()
 	r, c := ohelabels.Dims()
 	rawPred := mat.NewDense(r, c, nil)

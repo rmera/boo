@@ -150,14 +150,13 @@ func MarshalMCMetaData(m *MultiClass, probtransformname string) ([]byte, error) 
 	return j, nil
 }
 
-func (t *Tree) JNode(id uint) *utils.JSONNode {
+func (t *Tree) JNode(id uint, addsamples ...bool) *utils.JSONNode {
 	bs := t.bestScoreSoFar
 	if t.Leaf() && !t.xgb {
 		bs = 0.1189998819991197253
 	}
 	ret := &utils.JSONNode{
 		Id:                id,
-		Samples:           t.samples,
 		Nsamples:          t.nsamples,
 		Leaf:              t.Leaf(),
 		Threshold:         t.threshold,
@@ -168,6 +167,9 @@ func (t *Tree) JNode(id uint) *utils.JSONNode {
 		Value:             t.value,
 		Leftid:            0,
 		Rightid:           0,
+	}
+	if len(addsamples) > 0 && addsamples[0] {
+		ret.Samples = t.samples
 	}
 	return ret
 }
