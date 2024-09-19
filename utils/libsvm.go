@@ -151,6 +151,7 @@ func DataBunchFromLibSVMFile(filename string, hasHeader ...bool) (*DataBunch, er
 	if err != nil {
 		return nil, err
 	}
+	defer f.Close()
 	return ParseLibSVMFromReader(f, hasaheader)
 }
 

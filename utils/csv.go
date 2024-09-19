@@ -61,6 +61,7 @@ func DataBunchFromCSVFile(filename string, hasHeader, hasLabels bool, separator 
 	if err != nil {
 		return nil, err
 	}
+	defer f.Close()
 	return ParseCSVFromReader(f, hasHeader, hasLabels, sep)
 }
 
