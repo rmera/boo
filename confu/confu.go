@@ -43,7 +43,13 @@ func ReadNameMap(filename string, separator ...string) (map[int]string, error) {
 	var rerr error
 	ret := make(map[int]string)
 	for s, rerr := fin.ReadString('\n'); rerr == nil; s, rerr = fin.ReadString('\n') {
-		l := strings.Split(s, sep)
+		s := strings.Replace(s, "\n", "", -1)
+		var l []string
+		if sep == " " {
+			l = strings.Fields(s)
+		} else {
+			l = strings.Split(s, sep)
+		}
 		num, err := strconv.Atoi(l[0])
 		if err != nil {
 			return nil, err
@@ -71,9 +77,15 @@ type Confusions struct {
 func MCConfusions(M *boo.MultiClass, D *utils.DataBunch) *Confusions {
 	instances := D.Data
 	ret := &Confusions{Actual: D.Labels}
-	_, ret.Labels = D.OHELabels()
+	ret.Labels = M.ClassLabels()
+	ret.m = make(map[int]int)
+	for i, v := range ret.Labels {
+		ret.m[v] = i
+	}
+
 	ret.Predicted = make([]int, 0, len(ret.Actual))
 	for _, v := range instances {
+		//M.PredictSingleClass actually returns the index of the class in ret.Labels
 		ret.Predicted = append(ret.Predicted, ret.Labels[M.PredictSingleClass(v)])
 	}
 
@@ -83,13 +95,6 @@ func MCConfusions(M *boo.MultiClass, D *utils.DataBunch) *Confusions {
 func (C *Confusions) Matrix() [][]int {
 	if C.matrix != nil {
 		return C.matrix
-	}
-	if C.m == nil {
-		C.m = make(map[int]int)
-		for i, v := range C.Labels {
-			C.m[v] = i
-		}
-
 	}
 	//	fmt.Println("MAPA", C.m, C.Predicted, C.Actual) ////////////////////////////////////////
 	C.matrix = make([][]int, 0, len(C.Labels))
@@ -118,29 +123,40 @@ func (C *Confusions) PrintTopN(N int, m map[int]string) string {
 	ret[0] = "Confusions:"
 	for i, v := range r {
 		str := make([]string, 1, N)
-		str[0] = fmt.Sprintf("Label %d", C.Labels[i])
+		sum := 0
+		for _, w := range rf[i] {
+			sum += w
+		}
+		if sum == 0 {
+			continue
+		}
+		str[0] = fmt.Sprintf("Label %s ", m[C.Labels[i]])
 		n := N
 		if len(v) < N {
 			n = len(v)
 		}
 		for j := 0; j < n; j++ {
-			str = append(str, fmt.Sprintf("%d:%4.1f", C.Labels[v[j]], rf[i][j]*100))
+			num := rf[i][j]
+			if num == 0 {
+				continue
+			}
+			str = append(str, fmt.Sprintf("%s:%d", m[C.Labels[v[j]]], num))
 		}
-		ret = append(ret, strings.Join(str, ","))
+		ret = append(ret, strings.Join(str, " "))
 	}
 	return strings.Join(ret, "\n")
 
 }
 
 // For each label, returns the
-func (C *Confusions) TopNPerLabel(N int) ([][]int, [][]float64) {
+func (C *Confusions) TopNPerLabel(N int) ([][]int, [][]int) {
 	ret := make([][]int, 0, len(C.Labels))
-	retf := make([][]float64, 0, len(C.Labels))
+	retf := make([][]int, 0, len(C.Labels))
 
 	for _, v := range C.Labels {
-		fmt.Println("label", v) //////////////////
+		//		fmt.Println("label", v) //////////////////
 		r, rf := C.TopNForLabelM(N, v, true)
-		fmt.Println("weaita", r, rf) ///////////////////
+		//		fmt.Println("weaita", r, rf) ///////////////////
 		ret = append(ret, r)
 		retf = append(retf, rf)
 	}
@@ -151,13 +167,13 @@ func (C *Confusions) TopNPerLabel(N int) ([][]int, [][]float64) {
 // when the actual label is M. If M is not a valid label in the dataset,
 // returns nil. It also returns the fraction of instances where label M is predicted to be
 // each of the labels.
-func (C *Confusions) TopNForLabelM(N, M int, docopy ...bool) ([]int, []float64) {
+func (C *Confusions) TopNForLabelM(N, M int, docopy ...bool) ([]int, []int) {
 	C.Matrix()
 	index := slices.Index(C.Labels, M)
 	if index < 0 {
 		return nil, nil
 	}
-	fmt.Println(C.matrix, "beg", "label and index", M, index, C.Labels) /////////
+	//	fmt.Println(C.matrix, "beg", "label and index", M, index, C.Labels) /////////
 	om := C.matrix[index]
 
 	if len(C.tmpvals) != len(om) {
@@ -168,43 +184,28 @@ func (C *Confusions) TopNForLabelM(N, M int, docopy ...bool) ([]int, []float64) 
 	}
 
 	sorti, sortvals := memIntSort(om, C.tmpindx, C.tmpvals)
-	fmt.Println(om, "sorteds", sorti, sortvals) ///////////////////////////////////////////////////
+	//	fmt.Println(om, "sorteds", sorti, sortvals) ///////////////////////////////////////////////////
 	//now transform from index to actual labels
 	//	for i:=range(sorti){
 	//		sorti[i]=C.Labels[i]
 	//	}
-	sum := 0
-	for _, v := range sortvals {
-		sum += v
-	}
 	slices.Reverse(sorti)
 	slices.Reverse(sortvals)
 	if len(docopy) > 0 && docopy[0] {
-		println("copiacu!") //////////////////////
+		//	println("copiacu!") //////////////////////
 		cpsorti := make([]int, len(sorti))
 		cpsortvals := make([]int, len(sortvals))
 		copy(cpsortvals, sortvals)
 		copy(cpsorti, sorti)
-		fmt.Println("copias", sorti, cpsorti, sortvals, cpsortvals) ///////////
+		//	fmt.Println("copias", sorti, cpsorti, sortvals, cpsortvals) ///////////
 		sorti = cpsorti
 		sortvals = cpsortvals
 	}
-	fracs := func(N int, sortvals []int) []float64 {
-		f := make([]float64, 0, N)
-		for _, v := range sortvals[:N] {
-			println("v,sum", v, sum) ///////////////////
-			num := 0.0
-			if v != 0 {
-				num = float64(v) / float64(sum)
-			}
-			f = append(f, num)
-		}
-		return f
-	}
+
 	if N >= len(sorti) {
-		return sorti, fracs(len(sortvals), sortvals)
+		return sorti, sortvals
 	}
-	return sorti[:N], fracs(N, sortvals)
+	return sorti[:N], sortvals[:N]
 }
 
 type idSorter struct {

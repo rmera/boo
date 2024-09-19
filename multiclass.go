@@ -23,6 +23,12 @@ type MultiClass struct {
 	xgb           bool
 }
 
+func (M *MultiClass) ClassLabels() []int {
+	r := make([]int, len(M.classLabels))
+	copy(r, M.classLabels)
+	return r
+}
+
 // Returns the percentage of accuracy of the model on the data (which needs to contain
 // labels). You can give it the number of classes present, which helps with memory.
 func (M *MultiClass) Accuracy(D *utils.DataBunch, classes ...int) float64 {
