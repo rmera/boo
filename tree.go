@@ -178,11 +178,8 @@ func (T *Tree) maybeInsertChildNode(o *TreeOptions) {
 
 func (T *Tree) findBetterSplit(featureIndex int, o *TreeOptions) {
 	//	fmt.Println(T.x, o.Indexes, featureIndex) /////////////////////
-	x := utils.SampleMatrix(T.x, o.Indexes, []int{featureIndex})
-	xt := utils.TransposeFloats(x) //x is a col vector
-	in := o.in[0:len(xt[0])]
-	val := o.val[0:len(xt[0])]
-	sorted_indexes, sortx := utils.MemArgSort(xt[0], in, val)
+	val, in := utils.SampleColAndTranspose(T.x, o.val, o.in, o.Indexes, featureIndex) //x is a col vector
+	sorted_indexes, sortx := utils.OWArgSort(val, in)
 	var xi, xinext, yi, gi, hi float64
 	var g, h, sortg, sorth, ypart, sorty []float64
 	var sumg, sumh, sumhRight, sumhLeft float64
