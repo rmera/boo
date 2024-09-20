@@ -226,11 +226,12 @@ func BenchmarkCrossValXGBoostGrid(b *testing.B) {
 		b.Error(err)
 	}
 	o := DefaultXGridOptions()
-	o.Rounds = [3]int{2, 5, 2}
-	o.MaxDepth = [3]int{2, 3, 1}
+	o.Rounds = [3]int{20, 30, 10}
+	o.MaxDepth = [3]int{7, 9, 1}
+	//	o.EarlyStop = 300
 	o.LearningRate = [3]float64{0.1, 0.2, 0.1}
 	o.SubSample = [3]float64{0.8, 0.9, 0.1}
-	o.MinChildWeight = [3]float64{2, 4, 2}
+	o.MinChildWeight = [3]float64{1, 1, 1}
 	o.Verbose = true
 	o.NCPUs = 2
 	for i := 0; i < b.N; i++ {
