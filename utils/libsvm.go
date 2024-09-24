@@ -96,10 +96,11 @@ func (D *DataBunch) LibSVM() string {
 
 // This is not very good at all, it ignores the main strenght of libSVM format, that you can omit 0 values.
 // It's just a temporary solution to allow some testing
-func parseLibSVMLine(line string, header bool, retstr []string, retflo []float64) (int, []string, []float64, error) {
+func parseLibSVMLine(line string, header bool, retstr []string, retflo []float64) (int, float64, []string, []float64, error) {
 	var rets []string
 	var retf []float64
 	var class int
+	var fclass float64
 	var err error
 	fields := strings.Fields(line)
 	if len(retstr) >= len(fields)-1 {
@@ -111,13 +112,20 @@ func parseLibSVMLine(line string, header bool, retstr []string, retflo []float64
 	if !header {
 		class, err = strconv.Atoi(fields[0])
 		if err != nil {
-			return 0, nil, nil, err
+			return 0, 0, nil, nil, err
+		}
+		if strings.Contains(fields[0], ".") {
+			fclass, err = strconv.ParseFloat(fields[0], 64)
+			if err != nil {
+				return 0, 0, nil, nil, err
+			}
+
 		}
 	}
 	for _, v := range fields[1:] {
 		feats := strings.Split(v, ":")
 		if len(feats) != 2 {
-			return -1, nil, nil, fmt.Errorf("Malformed term: %s", v)
+			return -1, -1, nil, nil, fmt.Errorf("Malformed term: %s", v)
 		}
 		feat := feats[1]
 		if header {
@@ -125,13 +133,13 @@ func parseLibSVMLine(line string, header bool, retstr []string, retflo []float64
 		} else {
 			val, err := strconv.ParseFloat(feat, 64)
 			if err != nil {
-				return class, nil, nil, err
+				return class, -1, nil, nil, err
 			}
 			retf = append(retf, val)
 		}
 
 	}
-	return class, rets, retf, nil
+	return class, fclass, rets, retf, nil
 }
 
 func svmliberror(err error, linenu int, line string) error {
@@ -162,6 +170,7 @@ func ParseLibSVMFromReader(r io.Reader, hasHeader bool) (*DataBunch, error) {
 	var headers []string
 	var data [][]float64 = make([][]float64, 0, 1)
 	var labels []int
+	var flabels []float64
 	cont := 0
 	for {
 		//	println("Will read the line", cont+1) ///////
@@ -171,7 +180,7 @@ func ParseLibSVMFromReader(r io.Reader, hasHeader bool) (*DataBunch, error) {
 		}
 		var err error
 		if hasHeader && cont == 0 {
-			_, headers, _, err = parseLibSVMLine(line, true, nil, nil)
+			_, _, headers, _, err = parseLibSVMLine(line, true, nil, nil)
 			if err != nil {
 				return nil, svmliberror(err, cont+1, line)
 			}
@@ -180,13 +189,15 @@ func ParseLibSVMFromReader(r io.Reader, hasHeader bool) (*DataBunch, error) {
 		}
 		t := make([]float64, 0, len(headers))
 		l := 0
-		l, _, t, err = parseLibSVMLine(line, false, nil, nil)
+		fl := 0.0
+		l, fl, _, t, err = parseLibSVMLine(line, false, nil, nil)
 		if err != nil {
 			return nil, svmliberror(err, cont+1, line)
 
 		}
 		data = append(data, t)
 		labels = append(labels, l)
+		flabels = append(flabels, fl)
 
 		cont++
 	}
@@ -194,7 +205,7 @@ func ParseLibSVMFromReader(r io.Reader, hasHeader bool) (*DataBunch, error) {
 		return nil, err2
 	}
 
-	return &DataBunch{Data: data, Labels: labels, Keys: headers}, nil
+	return &DataBunch{Data: data, Labels: labels, Keys: headers, FloatLabels: flabels}, nil
 }
 
 /*
@@ -232,6 +243,16 @@ func distinctElements[S ~[]E, E Encodeable](s S) S {
 		}
 	}
 	return diff
+}
+
+// Returns a one-hot-encoded representation of the labels of the data bunch.
+func (D *DataBunch) LabelsRegression() *mat.Dense {
+	//cols :=1
+	//	datapoints := len(labels)
+	//rows := datapoints
+	ohlabels := mat.NewDense(len(D.FloatLabels), 1, D.FloatLabels)
+	return ohlabels
+
 }
 
 // each row is a feature vector, cols are the features

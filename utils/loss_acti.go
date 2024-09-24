@@ -70,6 +70,15 @@ func activationDense(O, D *mat.Dense, activation func([]float64, []float64) []fl
 	return D
 }
 
+// DoNothingDense is an 'activation function' that does nothing,
+// but simply returns the O matrix. The D matrix is
+// only required to comply with the activation function
+// signature
+func DoNothingDense(O, D *mat.Dense) *mat.Dense {
+	return O
+
+}
+
 // Interface for loss functions used in the package.
 type LossFunc interface {
 	Loss(*mat.Dense, *mat.Dense, *mat.Dense) float64

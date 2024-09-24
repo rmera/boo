@@ -65,8 +65,9 @@ func DataBunchFromCSVFile(filename string, hasHeader, hasLabels bool, separator 
 	return ParseCSVFromReader(f, hasHeader, hasLabels, sep)
 }
 
-func recordsToData(records []string, haslab bool, fields int) (int, []float64, error) {
+func recordsToData(records []string, haslab bool, fields int) (int, float64, []float64, error) {
 	label := -1
+	flabel := -1.0
 	var err error
 	if fields < 0 {
 		fields = 1
@@ -76,20 +77,28 @@ func recordsToData(records []string, haslab bool, fields int) (int, []float64, e
 	if haslab {
 		label, err = strconv.Atoi(records[0])
 		if err != nil {
-			return -1, nil, err
+			return -1, -1, nil, err
 		}
+		if strings.Contains(records[0], ".") {
+			flabel, err = strconv.ParseFloat(records[0], 64)
+			if err != nil {
+				return 0, 0, nil, err
+			}
+
+		}
+
 		start++
 	}
 	for _, v := range records[start:] {
 		f, err := strconv.ParseFloat(v, 64)
 		if err != nil {
-			return -1, nil, err
+			return -1, -1, nil, err
 		}
 		data = append(data, f)
 
 	}
 
-	return label, data, nil
+	return label, flabel, data, nil
 }
 
 func ParseCSVFromReader(r io.Reader, hasHeader, hasLabels bool, sep rune) (*DataBunch, error) {
@@ -99,6 +108,7 @@ func ParseCSVFromReader(r io.Reader, hasHeader, hasLabels bool, sep rune) (*Data
 	var headers []string
 	var data [][]float64 = make([][]float64, 0, 1)
 	var labels []int = make([]int, 0, 0)
+	var flabels []float64 = make([]float64, 0, 0)
 	read := csv.NewReader(r)
 	read.Comma = sep
 	read.TrimLeadingSpace = true
@@ -121,13 +131,14 @@ func ParseCSVFromReader(r io.Reader, hasHeader, hasLabels bool, sep rune) (*Data
 		if err2 != nil {
 			break
 		}
-		l, d, err3 := recordsToData(rec, hasLabels, n)
+		l, fl, d, err3 := recordsToData(rec, hasLabels, n)
 		if err3 != nil {
 
 			return nil, errors.Join(fmt.Errorf("Posibly an issue with the header?"), err3)
 		}
 		if hasLabels {
 			labels = append(labels, l)
+			flabels = append(flabels, fl)
 		}
 		n = len(d)
 		data = append(data, d)
@@ -137,5 +148,5 @@ func ParseCSVFromReader(r io.Reader, hasHeader, hasLabels bool, sep rune) (*Data
 		return nil, err2
 	}
 
-	return &DataBunch{Data: data, Labels: labels, Keys: headers}, nil
+	return &DataBunch{Data: data, Labels: labels, FloatLabels: flabels, Keys: headers}, nil
 }

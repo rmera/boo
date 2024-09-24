@@ -5,6 +5,7 @@ package boo
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/rmera/boo/utils"
 	"gonum.org/v1/gonum/mat"
@@ -20,6 +21,7 @@ type MultiClass struct {
 	tmp           []float64
 	predtmp       []float64
 	baseScore     float64
+	regression    bool
 	xgb           bool
 }
 
@@ -31,20 +33,31 @@ func (M *MultiClass) ClassLabels() []int {
 
 // Returns the percentage of accuracy of the model on the data (which needs to contain
 // labels). You can give it the number of classes present, which helps with memory.
+// If the Multiclass struct is actually a regression struct, the inverse of the RMSD
+// for the databunch is returned.
 func (M *MultiClass) Accuracy(D *utils.DataBunch, classes ...int) float64 {
 	right := 0
+	rsd := 0.0
 	instances := D.Data
 	actualclasses := D.Labels
 	if len(classes) > 0 && classes[0] > 0 && len(M.predtmp) < classes[0] {
 		M.predtmp = make([]float64, classes[0])
 	}
 	for i, v := range instances {
-		p := M.PredictSingleClass(v, M.predtmp)
-		if M.classLabels[p] == actualclasses[i] {
-			right++
+		if !M.regression {
+			p := M.PredictSingleClass(v, M.predtmp)
+			if M.classLabels[p] == actualclasses[i] {
+				right++
+			}
+		} else {
+			p := M.PredictSingle(v)[0]
+			rsd += math.Pow(p-D.FloatLabels[i], 2)
 		}
 	}
-	return 100.0 * (float64(right) / float64(len(instances)))
+	if !M.regression {
+		return 100.0 * (float64(right) / float64(len(instances)))
+	}
+	return 1 / (math.Sqrt(rsd / float64(len(instances)))) //1/RMSD
 
 }
 
