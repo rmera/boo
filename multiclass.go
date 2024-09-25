@@ -38,6 +38,7 @@ func (M *MultiClass) ClassLabels() []int {
 func (M *MultiClass) Accuracy(D *utils.DataBunch, classes ...int) float64 {
 	right := 0
 	rsd := 0.0
+	avvalues := 0.0
 	instances := D.Data
 	actualclasses := D.Labels
 	if len(classes) > 0 && classes[0] > 0 && len(M.predtmp) < classes[0] {
@@ -51,7 +52,9 @@ func (M *MultiClass) Accuracy(D *utils.DataBunch, classes ...int) float64 {
 			}
 		} else {
 			p := M.PredictSingle(v)[0]
+			//	fmt.Println("weaita", p, D.FloatLabels[i]) ///////////////////////////////
 			rsd += math.Pow(p-D.FloatLabels[i], 2)
+			avvalues += D.FloatLabels[2]
 		}
 	}
 	if !M.regression {

@@ -109,20 +109,23 @@ func parseLibSVMLine(line string, header bool, retstr []string, retflo []float64
 	if len(retflo) >= len(fields)-1 {
 		retf = retflo[:]
 	}
-	if !header {
+
+	labeloffset := 1
+	if strings.Contains(fields[0], ":") {
+		//This condition means that the first field is already a feature field (has a ":"
+		//meaning that there is no label in this line.
+		labeloffset = 0
+	}
+	if !header && labeloffset == 1 { //we don't do this if we don't have labels
 		class, err = strconv.Atoi(fields[0])
 		if err != nil {
-			return 0, 0, nil, nil, err
-		}
-		if strings.Contains(fields[0], ".") {
 			fclass, err = strconv.ParseFloat(fields[0], 64)
 			if err != nil {
 				return 0, 0, nil, nil, err
 			}
-
 		}
 	}
-	for _, v := range fields[1:] {
+	for _, v := range fields[labeloffset:] {
 		feats := strings.Split(v, ":")
 		if len(feats) != 2 {
 			return -1, -1, nil, nil, fmt.Errorf("Malformed term: %s", v)
@@ -250,7 +253,10 @@ func (D *DataBunch) LabelsRegression() *mat.Dense {
 	//cols :=1
 	//	datapoints := len(labels)
 	//rows := datapoints
-	ohlabels := mat.NewDense(len(D.FloatLabels), 1, D.FloatLabels)
+	ol := make([]float64, len(D.FloatLabels))
+	//	fmt.Println(D.FloatLabels) /////
+	copy(ol, D.FloatLabels)
+	ohlabels := mat.NewDense(len(D.FloatLabels), 1, ol)
 	return ohlabels
 
 }

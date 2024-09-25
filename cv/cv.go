@@ -72,6 +72,7 @@ type GridOptions struct {
 	Central        bool
 	NCPUs          int
 	WriteBest      bool
+	Regression     bool
 }
 
 func (o *GridOptions) Clone() *GridOptions {
@@ -93,6 +94,7 @@ func (o *GridOptions) Clone() *GridOptions {
 	ret.Central = o.Central
 	ret.Verbose = o.Verbose
 	ret.NCPUs = o.NCPUs
+	ret.Regression = o.Regression
 	return ret
 }
 
@@ -203,6 +205,7 @@ func Grid(data *utils.DataBunch, nfold int, options ...*GridOptions) (float64, [
 									t.MinChildWeight = cw
 									t.XGB = o.XGB
 									t.EarlyStop = o.EarlyStop
+									t.Regression = o.Regression
 									conc := &Options{O: t, Acc: accs[cpus], Err: errs[cpus], Ochan: os[cpus], Conc: true}
 									go MultiClassCrossValidation(data, nfold, conc)
 									cpus++
@@ -247,7 +250,11 @@ func rescueConcValues(errors []chan error, accs []chan float64, opts []chan *boo
 			bestacc = tmpacc
 			bestop = tmpop
 			if verbose {
-				fmt.Printf("New Best Accuracy %.0f%%, %s\n", bestacc, bestop.String())
+				if bestop.Regression {
+					fmt.Printf("New Best RMSD: %.2f, %s\n", 1/bestacc, bestop.String())
+				} else {
+					fmt.Printf("New Best Accuracy %.0f%%, %s\n", bestacc, bestop.String())
+				}
 			}
 			if writebest {
 				_ = writeBest(data, bestacc, bestop)

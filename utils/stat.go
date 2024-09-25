@@ -39,6 +39,10 @@ func fillDataBunch(ori, dest *DataBunch, toadd []int, docopy bool) *DataBunch {
 		if len(ori.Labels) > v {
 			dest.Labels = append(dest.Labels, ori.Labels[v])
 		}
+		if len(ori.FloatLabels) > v {
+			dest.FloatLabels = append(dest.FloatLabels, ori.FloatLabels[v])
+		}
+
 	}
 	if len(dest.Keys) > 0 {
 		if docopy {

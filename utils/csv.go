@@ -77,16 +77,11 @@ func recordsToData(records []string, haslab bool, fields int) (int, float64, []f
 	if haslab {
 		label, err = strconv.Atoi(records[0])
 		if err != nil {
-			return -1, -1, nil, err
-		}
-		if strings.Contains(records[0], ".") {
 			flabel, err = strconv.ParseFloat(records[0], 64)
 			if err != nil {
 				return 0, 0, nil, err
 			}
-
 		}
-
 		start++
 	}
 	for _, v := range records[start:] {
