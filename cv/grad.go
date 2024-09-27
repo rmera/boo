@@ -256,7 +256,11 @@ func GradientGrid(data *utils.DataBunch, nfold int, options ...*GridOptions) (fl
 				//		println("new (might not be best) accuracy!", acc)
 				if acc > bestacc {
 					if o.Verbose {
-						fmt.Println("New best accuracy: ", acc, t)
+						if o.Regression {
+							fmt.Println("New best RMSD: ", 1/acc, t)
+						} else {
+							fmt.Println("New best accuracy: ", acc, t)
+						}
 					}
 					accuracies = append(accuracies, acc)
 					finaloptions = t

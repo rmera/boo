@@ -45,6 +45,7 @@ func HybridGradientGrid(data *utils.DataBunch, nfold int, options ...*GridOption
 					t.MinChildWeight = cw
 					t.XGB = o.XGB
 					t.EarlyStop = o.EarlyStop
+					t.Regression = o.Regression
 
 					tprev := t.Clone()
 					CompareAccs := func(t, tprev *boo.Options) (*boo.Options, error) {
@@ -57,7 +58,11 @@ func HybridGradientGrid(data *utils.DataBunch, nfold int, options ...*GridOption
 						}
 						if acc > bestacc {
 							if o.Verbose {
-								fmt.Println("New best accuracy: ", acc, t)
+								if o.Regression {
+									fmt.Println("New best RMSD: ", 1/acc, t)
+								} else {
+									fmt.Println("New best accuracy: ", acc, t)
+								}
 							}
 							accuracies = append(accuracies, acc)
 							finaloptions = t

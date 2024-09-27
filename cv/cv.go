@@ -252,7 +252,6 @@ func rescueConcValues(errors []chan error, accs []chan float64, opts []chan *boo
 			if verbose {
 				if bestop.Regression {
 					fmt.Printf("New Best RMSD: %.2f, %s\n", 1/bestacc, bestop.String())
-					bestacc = 1 / bestacc
 				} else {
 					fmt.Printf("New Best Accuracy %.0f%%, %s\n", bestacc, bestop.String())
 				}
@@ -267,6 +266,9 @@ func rescueConcValues(errors []chan error, accs []chan float64, opts []chan *boo
 }
 
 func writeBest(data *utils.DataBunch, bestacc float64, bestop *boo.Options) error {
+	if bestop.Regression {
+		bestacc = 1 / bestacc
+	}
 	name := fmt.Sprintf("xgbmodel%d.json", int(bestacc))
 	f, err := os.Create(name)
 	if err != nil {
