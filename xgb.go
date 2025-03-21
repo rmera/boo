@@ -6,7 +6,6 @@ package boo
 // by Matt Bowers (https://github.com/mcb00)
 
 import (
-	"fmt"
 	"log"
 	"math"
 	"math/rand/v2"
@@ -117,7 +116,7 @@ func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 			}
 			classes = append(classes, tree)
 			if O.Verbose {
-				fmt.Printf("round: %d, class: %d train loss = %.3f\n", round, k, currloss)
+				log.Printf("round: %d, class: %d train loss = %.3f\n", round, k, currloss)
 			}
 			if O.EarlyStop > 0 {
 				epsilon := 1e-6

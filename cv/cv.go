@@ -205,6 +205,7 @@ func Grid(data *utils.DataBunch, nfold int, options ...*GridOptions) (float64, [
 									t.MinChildWeight = cw
 									t.XGB = o.XGB
 									t.EarlyStop = o.EarlyStop
+									t.Verbose = o.Verbose
 									t.Regression = o.Regression
 									conc := &Options{O: t, Acc: accs[cpus], Err: errs[cpus], Ochan: os[cpus], Conc: true}
 									go MultiClassCrossValidation(data, nfold, conc)
@@ -246,7 +247,7 @@ func rescueConcValues(errors []chan error, accs []chan float64, opts []chan *boo
 			return -1, nil, fmt.Errorf("grads zero") //not a real error, just that the optimizatio is over.
 		}
 		tmpop = <-opts[i]
-		if tmpacc > bestacc {
+		if tmpacc >= bestacc {
 			bestacc = tmpacc
 			bestop = tmpop
 			if verbose {
