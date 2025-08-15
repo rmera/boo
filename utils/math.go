@@ -12,6 +12,29 @@ import (
 
 // takes a sub-matrix of m, consisting in its rows with indexes present in rowIndexes and the
 // columns present in colIndexes, inthe order in which they appear in the 2 int slices.
+func SampleColAndTranspose(m [][]float64, target []float64, targetindexes, rowIndexes []int, colIndex int) ([]float64, []int) {
+
+	size := len(rowIndexes)
+	if len(target) < size || len(targetindexes) < size {
+		p := fmt.Sprintf("SamplecolAndTranspose: the target (%d) or targetindexes (%d) is too small to store the sampled values of the matrix %d", len(target), len(targetindexes), size)
+		panic(p)
+	}
+	if len(target) > size {
+		target = target[:size]
+	}
+	if len(targetindexes) > size {
+		targetindexes = targetindexes[:size]
+	}
+
+	for i, v := range rowIndexes {
+		target[i] = m[v][colIndex]
+		targetindexes[i] = i
+	}
+	return target, targetindexes
+}
+
+// takes a sub-matrix of m, consisting in its rows with indexes present in rowIndexes and the
+// columns present in colIndexes, inthe order in which they appear in the 2 int slices.
 func SampleMatrix(m [][]float64, rowIndexes, colIndexes []int) [][]float64 {
 	ret := make([][]float64, 0, len(rowIndexes))
 	for _, v := range rowIndexes {
@@ -57,6 +80,15 @@ func MemArgSort(target []float64, tmpint []int, tmpval []float64) ([]int, []floa
 		tmpval[i] = v // = append(val, v)
 	}
 	r := &idSorter{i: tmpint, a: tmpval}
+	sort.Sort(r)
+	return r.i, r.a
+}
+
+// Returns the indexes that would sort the given slice
+// and also the sorted slice, which is the same given
+// (i.e. it gets overwritten)
+func OWArgSort(a []float64, in []int) ([]int, []float64) {
+	r := &idSorter{i: in, a: a}
 	sort.Sort(r)
 	return r.i, r.a
 }

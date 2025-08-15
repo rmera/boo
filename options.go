@@ -19,6 +19,7 @@ type Options struct {
 	SubSample      float64
 	ColSubSample   float64
 	BaseScore      float64
+	Regression     bool
 	MinSample      int //the minimum samples in each tree
 	TreeMethod     string
 	//	EarlyStopRounds      int //stop after n consecutive rounds of no improvement. Not implemented yet.

@@ -17,8 +17,7 @@ and part of (see below)  [extreme gradient boosting](https://github.com/dmlc/xgb
 
 * The library can serialize models in JSON format, and recover them (the JSON format is pretty simple for 3rd-party libraries to read). 
 
-* Basic file-reading  facilities a _very_ naive
-reader for the libSVM format, and a reader for the CSV format), are provided.
+* The library provides basic file-reading  facilities for the libSVM and CSV formats.
 
 * Cross-validation and CV-based grid search for hyperparameter optimization.
 
@@ -41,8 +40,7 @@ Many of these reflect the fact that I mostly work with rather small, dense datas
 * There are only exact trees, and no sparsity-awareness.
 * Some features in the XGBoost library are absent (mainly, L1 regularization).
 * In general, computational performance is not a top priority for this project, though of course it would be nice.
-* As mentioned above, the libSVM reading support is very basic. 
-* Only classification is supported. Still, since its  multi-class classification using one-hot-encoding, and the "activation function" (softmax by default) can be changed, I suspect you can trick the function into doing regression by giving one class and an activation function that does nothing.
+* Only classification is supported. Still, since its  multi-class classification using one-hot-encoding, and the "activation function" (softmax by default) can be changed, I suspect you can trick the function into doing regression by giving one class and an activation function that does nothing (update: I have actually done this successfully).
 * There is nothing to deal with missing features in the samples.
 * Ability to recover and apply serialized models from XGBoost. There is the [Leaves](https://github.com/dmitryikh/leaves) library for that, though.
 * A less brute-force scheme for hyperparameter determination

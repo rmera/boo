@@ -25,7 +25,7 @@ func TestCSV(Te *testing.T) {
 		Te.Error(err)
 	}
 	fmt.Println("no labels", data.String())
-	data, err = DataBunchFromCSVFile("../tests/train.csv", false, true)
+	data, err = DataBunchFromCSVFile("../tests/train.csv", true, true)
 	if err != nil {
 		Te.Error(err)
 	}
@@ -34,17 +34,20 @@ func TestCSV(Te *testing.T) {
 }
 
 func TestLibSVM(Te *testing.T) {
+	fmt.Println("To read traineasy")
 	data, err := DataBunchFromLibSVMFile("../tests/traineasy.svm", true)
 	if err != nil {
 		Te.Error(err)
 	}
 	fmt.Println(data.String())
 	fmt.Println(data.LibSVM())
+	fmt.Println("Toread traineasynoheader")
 	data, err = DataBunchFromLibSVMFile("../tests/traineasynoheader.svm", false)
 	if err != nil {
 		Te.Error(err)
 	}
 	fmt.Println("no headers", data.String())
+	fmt.Println("To read trainneasynolabels")
 	data, err = DataBunchFromLibSVMFile("../tests/traineasynolabels.svm", true)
 	if err != nil {
 		Te.Error(err)
