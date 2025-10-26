@@ -68,8 +68,8 @@ type GridOptions struct {
 	Step           float64
 	DeltaFraction  float64
 	Verbose        bool
-	NSteps         int
-	Central        bool
+	NSteps         int  //gradient stuff
+	Central        bool //ditto
 	NCPUs          int
 	WriteBest      bool
 	Regression     bool
@@ -117,6 +117,7 @@ func DefaultGGridOptions() *GridOptions {
 	ret.ColSubSample = [3]float64{1, 1, 2}
 	ret.Verbose = false
 	ret.EarlyStop = boo.DefaultGOptions().EarlyStop
+	ret.WriteBest = true
 	return ret
 }
 
@@ -138,6 +139,7 @@ func DefaultXGridOptions() *GridOptions {
 	ret.DeltaFraction = 0.05
 	ret.NSteps = 6
 	ret.Central = true
+	ret.WriteBest = true
 	ret.EarlyStop = boo.DefaultXOptions().EarlyStop
 	ret.Verbose = false
 	ret.NCPUs = 1

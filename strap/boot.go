@@ -80,15 +80,13 @@ func HistogramConfidence[N RealNumber](data []N, conflevel float64, nboot int, c
 		if len(d) != ns {
 			panic(fmt.Sprintf("One of the bootstrapped histograms has an incorrect size: %d, should be %d", len(d), ns))
 		}
-		this := make([]float64, ns)
 		var tot N
-		for i, v := range d {
-			this[i] = float64(v)
+		for _, v := range d {
 			tot += v
 		}
 		ftot := float64(tot)
-		for i, v := range this {
-			histos[i][btnum] = v / ftot
+		for i, v := range d {
+			histos[i][btnum] = float64(v) / ftot
 
 		}
 	}
