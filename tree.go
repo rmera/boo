@@ -390,14 +390,14 @@ func (f *Feats) String() string {
 	if f.xgb {
 		xgb = "xgboost"
 	}
-	ret[0] = fmt.Sprintf("Feature Importance in descending order, for %s:", xgb)
+	ret[0] = fmt.Sprintf("Feature Importance in ascending order, for %s:", xgb)
 	for i, v := range f.feat {
 		ret = append(ret, fmt.Sprintf("%d Feature %d with score: %.3f", i+1, v, f.gains[i]))
 	}
 	return strings.Join(ret, "\n")
 }
 
-// Returns a string with a list of the features, in descending order of importance, and their scores.
+// Returns a string with a list of the features, in ascending order of importance, and their scores.
 func (T *Tree) FeatureImportance(xgboost bool, gains ...*Feats) (*Feats, error) {
 	if T.Leaf() {
 		if len(gains) == 0 {
