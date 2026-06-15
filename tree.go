@@ -334,6 +334,7 @@ func (T *Tree) Print(spacing string, featurenames ...[]string) string {
 
 // Feats represents a set of features and their associated gains in a tree
 // Implements sort.Sort, so the features can be sorted by gain.
+// ********* Feature indexes are zero-based ********* //
 type Feats struct {
 	xgb   bool
 	feat  []int
@@ -343,6 +344,19 @@ type Feats struct {
 
 func NewFeats(xgboost bool) *Feats {
 	return &Feats{feat: make([]int, 0, 1), gains: make([]float64, 0, 1), xgb: xgboost}
+}
+
+// Returns a copy of the indexes of the n most important features, or all of them if n<=0
+func (f *Feats) Feats(n int) []int {
+	if n <= 0 {
+		n = len(f.feat)
+	}
+	ret := make([]int, 0, n)
+	for i := 0; i < n; i++ {
+		ret = append(ret, f.feat[i])
+	}
+	return ret
+
 }
 
 // Adds a feature,gain pair to the f set. This operation

@@ -12,10 +12,32 @@ import (
 // Keys are the feature names, Lables are the
 // classification of each Data vector, if available
 type DataBunch struct {
-	Data        [][]float64
+	Data        [][]float64 //each row is a feature vector, each col has a feature.
 	Keys        []string
 	Labels      []int
 	FloatLabels []float64 //for now we keep both
+}
+
+// Returns a copy of the receiver. If you give blankdata and its true, you get
+// a copy with correctly-sized but zeroed data (which is cheaper than copying the data
+// if you will overwrite it anyway, as you'd do for bootstrapping
+func (D *DataBunch) Copy(blankdata ...bool) *DataBunch {
+	ret := new(DataBunch)
+	ret.Keys = make([]string, len(D.Keys))
+	copy(ret.Keys, D.Keys)
+	ret.Labels = make([]int, len(D.Labels))
+	copy(ret.Labels, D.Labels)
+	ret.FloatLabels = make([]float64, len(D.FloatLabels))
+	copy(ret.FloatLabels, D.FloatLabels)
+	ret.Data = make([][]float64, len(D.Data))
+	for i, v := range D.Data {
+		ret.Data[i] = make([]float64, len(v))
+		if len(blankdata) > 0 && blankdata[0] {
+			continue
+		}
+		copy(ret.Data[i], v)
+	}
+	return ret
 }
 
 // returns a one-hot-encoded representation of the keys of the data bunch
