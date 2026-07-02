@@ -10,6 +10,36 @@ import (
 	"github.com/rmera/boo/utils"
 )
 
+func MonteCarloValidation(D *utils.DataBunch, nreps int, trainingfraction float64, O *boo.Options) ([]float64, error) {
+	var err error
+	ret := make([]float64, 0, nreps)
+	for i := 0; i < nreps; i++ {
+		train, test := utils.ShuffleData(D, trainingfraction)
+		b := boo.NewMultiClass(train)
+		if b.Rounds() <= 0 {
+			err = fmt.Errorf("MonteCarloValidation: The %d iteration didn't boosting ensemble, will continue with the others. %w", i, err)
+			continue
+		}
+		ret = append(ret, b.Accuracy(test))
+	}
+	return ret, err
+}
+
+func RepeatedCrossvalidation(D *utils.DataBunch, nfold, nreps int, O *boo.Options) ([]float64, error) {
+	opts := new(Options)
+	opts.Conc = false
+	opts.O = O
+	ret := make([]float64, 0, nreps)
+	for i := 0; i < nreps; i++ {
+		r, err := MultiClassCrossValidation(D, nfold, opts)
+		if err != nil {
+			return ret, err
+		}
+		ret = append(ret, r)
+	}
+	return ret, nil
+}
+
 // Runs a nfold-cross-validation test of the options in opts the data D. It can return the results
 // directly or sent them through channels.
 func MultiClassCrossValidation(D *utils.DataBunch, nfold int, opts *Options) (float64, error) {

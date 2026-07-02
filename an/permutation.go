@@ -10,13 +10,17 @@ import (
 
 // Returns D, not a copy, with the Labels permutefeatures in the given index set scrambled. All features in the given
 // set are scrambled randomly but identically. i.e. using the same random permutation for both each time.
-// it also takes 2 slices to be used as scratch (it allocates for them if they are nil) and returns 2 to be 
-//used in future calls. The second one contains the labels in the original order
+// it also takes 2 slices to be used as scratch (it allocates for them if they are nil) and returns 2 to be
+// used in future calls. The second one contains the labels in the original order
 func PermuteLabels(D *utils.DataBunch, used, tmp []int) (*utils.DataBunch, []int, []int) {
 	samples := len(D.Labels)
 	if used == nil {
 		used = make([]int, 0, samples)
+	} else {
+		used = used[:0]
+
 	}
+
 	if len(tmp) != len(D.Labels) {
 		tmp = make([]int, samples)
 	}
@@ -29,7 +33,7 @@ func PermuteLabels(D *utils.DataBunch, used, tmp []int) (*utils.DataBunch, []int
 			}
 			used = append(used, a)
 			return a
-		}		return -1
+		}
 	}
 	for _, v := range D.Labels {
 		newindex := NewIndex()
@@ -57,7 +61,7 @@ func nonparam(score float64, nulls []float64, twotails ...bool) float64 {
 	}
 	p := float64(g)
 	if l < g && (len(twotails) > 0 && twotails[0]) {
-		p = float64(g)
+		p = float64(l)
 	}
 	return p / float64(len(nulls))
 }

@@ -80,5 +80,5 @@ func VariableImportance(xgb *boo.MultiClass, D *utils.DataBunch, feature *IDOrKe
 	}
 	IniAcc := xgb.Accuracy(D)
 	ScAcc := xgb.Accuracy(scdata)
-	return ScAcc - IniAcc, IniAcc, ScAcc, nil
+	return IniAcc - ScAcc, IniAcc, ScAcc, nil
 }

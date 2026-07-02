@@ -6,11 +6,34 @@ import (
 	"slices"
 )
 
+func ShuffleData(D *DataBunch, trainingfraction float64) (*DataBunch, *DataBunch) {
+	train := new(DataBunch)
+	test := new(DataBunch)
+	train.Keys = make([]string, len(D.Keys))
+	test.Keys = make([]string, len(D.Keys))
+	copy(train.Keys, D.Keys)
+	copy(test.Keys, D.Keys)
+	train.Data = make([][]float64, 0, len(D.Data))
+	train.Labels = make([]int, 0, len(D.Labels))
+	train.FloatLabels = make([]float64, 0, len(D.FloatLabels))
 
+	test.Data = make([][]float64, 0, len(D.Data))
+	test.Labels = make([]int, 0, len(D.Labels))
+	test.FloatLabels = make([]float64, 0, len(D.FloatLabels))
+	for i, v := range D.Data {
+		if rand.Float64() > trainingfraction {
+			test.Data = append(test.Data, v)
+			test.Labels = append(test.Labels, D.Labels[i])
+			test.FloatLabels = append(test.FloatLabels, D.FloatLabels[i])
+		} else {
+			train.Data = append(train.Data, v)
+			train.Labels = append(train.Labels, D.Labels[i])
+			train.FloatLabels = append(train.FloatLabels, D.FloatLabels[i])
+		}
 
-
-
-
+	}
+	return train, test
+}
 
 func isInPrevious(i int, sam [][]int) bool {
 	if len(sam) == 0 {
