@@ -34,7 +34,15 @@ var ProbTransformMap map[string]func(*mat.Dense, *mat.Dense) *mat.Dense = map[st
 	"softmax": utils.SoftMaxDense,
 }
 
-func UnJSONMultiClass(r *bufio.Reader) (*MultiClass, error) {
+// LossMap maps the name returned by a utils.LossFunc's Name method to
+// an instance of that loss function. It's used to recover the Loss
+// field of an Options struct from the name saved in a JSON file.
+var LossMap map[string]utils.LossFunc = map[string]utils.LossFunc{
+	"sqerr": &utils.SQErrLoss{},
+	"mse":   &utils.MSELoss{},
+}
+
+func UnJSONMultiClass(r *bufio.Reader, opts ...*Options) (*MultiClass, error) {
 	ret := &MultiClass{}
 	jmc := &JSONMetaData{}
 	s, err := r.ReadString('\n')
@@ -49,6 +57,9 @@ func UnJSONMultiClass(r *bufio.Reader) (*MultiClass, error) {
 	ret.classLabels = jmc.ClassLabels
 	ret.probTransform = ProbTransformMap[jmc.ProbTransformName]
 	ret.baseScore = jmc.BaseScore
+	if len(opts) > 0 && opts[0] != nil && jmc.Options != nil {
+		*opts[0] = *jmc.Options.toOptions()
+	}
 	//I'm not sure this will work!
 	//	s, err = r.ReadString('\n')
 	//	if err != nil {
@@ -95,9 +106,12 @@ func UnJSONMultiClass(r *bufio.Reader) (*MultiClass, error) {
 
 // Marshals a multi-class classifier to JSON. probtransformname is the name of the activation
 // function, normally, "softmax", w is any object with a WriteString(string)(int,error)
-// method, normally, a *bufio.Writer.
-func JSONMultiClass(m *MultiClass, activationfunctionname string, w writestringer) error {
-	j, err := MarshalMCMetaData(m, activationfunctionname)
+// method, normally, a *bufio.Writer. An optional *Options can be given, in which case its
+// values are saved as part of the file's metadata. If no *Options is given, the produced
+// file is identical to what the previous version of this function would have produced, and
+// remains readable by it.
+func JSONMultiClass(m *MultiClass, activationfunctionname string, w writestringer, opts ...*Options) error {
+	j, err := MarshalMCMetaData(m, activationfunctionname, opts...)
 	if err != nil {
 		return err
 	}
@@ -133,14 +147,106 @@ type JSONMetaData struct {
 	ClassLabels       []int
 	ProbTransformName string
 	BaseScore         float64
+	// Options carries the hyperparameters used to train the model. It's
+	// only present if a *Options was given to MarshalMCMetaData/JSONMultiClass,
+	// so its absence (nil) doesn't break unmarshalling of files produced
+	// before this field existed.
+	Options *JSONOptions `json:",omitempty"`
 }
 
-func MarshalMCMetaData(m *MultiClass, probtransformname string) ([]byte, error) {
+// JSONOptions mirrors Options, replacing the non-serializable Loss
+// field (a utils.LossFunc interface) with the name returned by its
+// Name method, so it can be round-tripped through JSON. See LossMap.
+type JSONOptions struct {
+	XGB            bool
+	Rounds         int
+	MaxDepth       int
+	EarlyStop      int
+	LearningRate   float64
+	Lambda         float64
+	MinChildWeight float64
+	Gamma          float64
+	SubSample      float64
+	ColSubSample   float64
+	BaseScore      float64
+	Regression     bool
+	MinSample      int
+	TreeMethod     string
+	Verbose        bool
+	LossName       string
+}
+
+// optionsToJSONOptions converts an *Options into its JSON-friendly
+// representation. Returns nil if o is nil.
+func optionsToJSONOptions(o *Options) *JSONOptions {
+	if o == nil {
+		return nil
+	}
+	lossname := ""
+	if o.Loss != nil {
+		lossname = o.Loss.Name()
+	}
+	return &JSONOptions{
+		XGB:            o.XGB,
+		Rounds:         o.Rounds,
+		MaxDepth:       o.MaxDepth,
+		EarlyStop:      o.EarlyStop,
+		LearningRate:   o.LearningRate,
+		Lambda:         o.Lambda,
+		MinChildWeight: o.MinChildWeight,
+		Gamma:          o.Gamma,
+		SubSample:      o.SubSample,
+		ColSubSample:   o.ColSubSample,
+		BaseScore:      o.BaseScore,
+		Regression:     o.Regression,
+		MinSample:      o.MinSample,
+		TreeMethod:     o.TreeMethod,
+		Verbose:        o.Verbose,
+		LossName:       lossname,
+	}
+}
+
+// toOptions converts a JSONOptions back into an *Options, recovering
+// the Loss field from LossMap. Returns nil if jo is nil.
+func (jo *JSONOptions) toOptions() *Options {
+	if jo == nil {
+		return nil
+	}
+	return &Options{
+		XGB:            jo.XGB,
+		Rounds:         jo.Rounds,
+		MaxDepth:       jo.MaxDepth,
+		EarlyStop:      jo.EarlyStop,
+		LearningRate:   jo.LearningRate,
+		Lambda:         jo.Lambda,
+		MinChildWeight: jo.MinChildWeight,
+		Gamma:          jo.Gamma,
+		SubSample:      jo.SubSample,
+		ColSubSample:   jo.ColSubSample,
+		BaseScore:      jo.BaseScore,
+		Regression:     jo.Regression,
+		MinSample:      jo.MinSample,
+		TreeMethod:     jo.TreeMethod,
+		Verbose:        jo.Verbose,
+		Loss:           LossMap[jo.LossName],
+	}
+}
+
+// MarshalMCMetaData marshals the metadata for a MultiClass model. An
+// optional *Options can be given, in which case it's included in the
+// resulting JSON (see JSONMetaData.Options). If none is given, the
+// output is identical to what this function produced before Options
+// support was added, and stays readable by UnJSONMultiClass without
+// giving it an *Options.
+func MarshalMCMetaData(m *MultiClass, probtransformname string, opts ...*Options) ([]byte, error) {
 	r := &JSONMetaData{
 		LearningRate:      m.learningRate,
 		ClassLabels:       m.classLabels,
 		ProbTransformName: probtransformname,
 		BaseScore:         m.baseScore,
+	}
+	if len(opts) > 0 {
+		r.Options = optionsToJSONOptions(opts[0])
 	}
 	j, err := json.Marshal(r)
 	if err != nil {

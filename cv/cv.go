@@ -5,19 +5,20 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/rmera/boo"
 	"github.com/rmera/boo/utils"
 )
 
-func MonteCarloValidation(D *utils.DataBunch, nreps int, trainingfraction float64, O *boo.Options) ([]float64, error) {
+func MonteCarloCrossValidation(D *utils.DataBunch, nreps int, trainingfraction float64, O *boo.Options) ([]float64, error) {
 	var err error
 	ret := make([]float64, 0, nreps)
 	for i := 0; i < nreps; i++ {
 		train, test := utils.ShuffleData(D, trainingfraction)
 		b := boo.NewMultiClass(train)
 		if b.Rounds() <= 0 {
-			err = fmt.Errorf("MonteCarloValidation: The %d iteration didn't boosting ensemble, will continue with the others. %w", i, err)
+			err = fmt.Errorf("MonteCarloCrossValidation: The %d iteration didn't boosting ensemble, will continue with the others. %w", i, err)
 			continue
 		}
 		ret = append(ret, b.Accuracy(test))
@@ -298,18 +299,44 @@ func rescueConcValues(errors []chan error, accs []chan float64, opts []chan *boo
 
 }
 
+// Modifies the name such that there is no file with the modified name in the current directory.
+// if that condition is fullfilled for the name given, returns it without modification.
+// the modification is to add _N before the file's extension, where N is a number >=0 and <1000
+// if files exists for all values of N, it returns the last tested (file_999.extension) even though
+// it's not unique.
+func uniqueFileName(name string) string { // createUniqueFile checks if a file exists. If it doesn't, it creates it.
+	ext := filepath.Ext(name)                   // e.g., ".json"
+	baseWithoutExt := name[:len(name)-len(ext)] // e.g., "sample"
+	for i := -1; i < 1000; i++ {
+		newName := name //we first test just the name. If we are lucky, it doesn't exist.
+		if i >= 0 {
+			// Format the counter with a leading zero (e.g., _01, _02, ... _10)
+			newName = fmt.Sprintf("%s_%03d%s", baseWithoutExt, i, ext)
+		}
+		// Check if this new filename exists
+		if _, err := os.Stat(newName); os.IsNotExist(err) {
+			// Found a unique name, create the file and exit the loop
+			return newName
+		}
+	}
+
+	return fmt.Sprintf("%s_%03d%s", baseWithoutExt, 999, ext)
+}
+
+// Writes a model trained on data with bestop hyperparameters as a json file which contains the op the name. It puts the previously
+// obtained (most likely by crossvalidation) accuracy for the hyperparameters in the filename.
 func writeBest(data *utils.DataBunch, bestacc float64, bestop *boo.Options) error {
 	if bestop.Regression {
 		bestacc = 1 / bestacc
 	}
-	name := fmt.Sprintf("xgbmodel%d.json", int(bestacc))
+	name := uniqueFileName(fmt.Sprintf("xgbmodel%d.json", int(bestacc)))
 	f, err := os.Create(name)
 	if err != nil {
 		return err
 	}
 	boosted := boo.NewMultiClass(data, bestop)
 	bf := bufio.NewWriter(f)
-	err = boo.JSONMultiClass(boosted, "softmax", bf)
+	err = boo.JSONMultiClass(boosted, "softmax", bf, bestop)
 	if err != nil {
 		return err
 	}
