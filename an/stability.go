@@ -4,8 +4,6 @@ package an
 This code is a direct translation of the code by S. Nogeira avaliable at: https://github.com/nogueirs/JMLR2018
 Even some of the comments are taken directly from there. The test compares the result of these functions to their
 original Python code.
-
-
 */
 
 import (
@@ -106,7 +104,9 @@ func matrixThings(Z [][]float64) (float64, float64, []float64, float64) {
 }
 
 /*
-For now this is directly lifted from the source:
+From:  S. Nogueira, K. Sechidis, G. Brown, J. Mach. Learn. Res. 2017, 18, 174:1-174:54.
+
+The comments are taken from the original Python functions that accompany the reference above.
 
 Let us assume we have M>1 feature sets and d>0 features in total.
 This function computes the stability estimate as given in Definition 4 in  [1].
@@ -139,6 +139,8 @@ func featStabilityRaw(Z [][]float64) (float64, float64, float64, []float64, floa
 }
 
 /*
+From:  S. Nogueira, K. Sechidis, G. Brown, J. Mach. Learn. Res. 2017, 18, 174:1-174:54.
+
 Let us assume we have M>1 feature sets and d>0 features in total.
 This function computes the stability estimate and its variance as given in [1].
 
@@ -176,16 +178,15 @@ func StabilityAndVariance(Z [][]float64) (float64, float64) {
 	return stab, vari
 }
 
-//Takes a set of int slices each representing a group of features. Say
+// Takes a set of int slices each representing a group of features. Say
 // you get 2 groups, one with features 0, 2,3 and one with 1,5
 // groups=[][]int{{0,2,3},{1,5}}
-//retuns a function that takes a slice of ints and
-//returns a slice of ints and an int. The int is always
-//the number of groups in the original groups slice (2 in our example)
-//The slice is a grouping of the input slice. Say  you get the slice []int{0,2}
-//the output will be just []{0} since only the first (zero) groups is represented
-//in the input slice.
-
+// retuns a function that takes a slice of ints and
+// returns a slice of ints and an int. The int is always
+// the number of groups in the original groups slice (2 in our example)
+// The slice is a grouping of the input slice. Say  you get the slice []int{0,2}
+// the output will be just []{0} since only the first (zero) groups is represented
+// in the input slice.
 func MakeGrouperFunc(groups [][]int) func([]int) ([]int, int) {
 	nu := len(groups)
 	f := func(l []int) ([]int, int) {
@@ -229,6 +230,7 @@ func StabilityOnDataVar(D *utils.DataBunch, O *boo.Options, NBoot, Nfeat int, gr
 	fvecs := make([][]float64, 0, len(D.Keys))
 	for i := range NBoot {
 		bD.Data = strap.Bootstrap(D.Data, bD.Data)
+		//fmt.Println(bD.Data) ////////////////////////////////////////////////////////////
 		xgb := boo.NewMultiClass(bD, O)
 		feat, err := xgb.FeatureImportance()
 		if err != nil {
@@ -239,7 +241,9 @@ func StabilityOnDataVar(D *utils.DataBunch, O *boo.Options, NBoot, Nfeat int, gr
 		for _, v := range features {
 			featrow[v] = 1.0
 		}
+
 		fvecs = append(fvecs, featrow)
 	}
+	fmt.Println(fvecs) ///////////////////
 	return StabilityAndVariance(fvecs)
 }
