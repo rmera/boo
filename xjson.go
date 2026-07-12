@@ -39,8 +39,9 @@ var ActivationMap map[string]utils.Activation = map[string]utils.Activation{
 // an instance of that loss function. It's used to recover the Loss
 // field of an Options struct from the name saved in a JSON file.
 var LossMap map[string]utils.LossFunc = map[string]utils.LossFunc{
-	"sqerr": &utils.SQErrLoss{},
-	"mse":   &utils.MSELoss{},
+	"sqerr":    &utils.SQErrLoss{},
+	"mse":      &utils.MSELoss{},
+	"mlogloss": &utils.MLogLoss{},
 }
 
 func UnJSONMultiClass(r *bufio.Reader, opts ...*Options) (*MultiClass, error) {

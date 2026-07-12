@@ -169,6 +169,7 @@ func TestXGBoost(Te *testing.T) {
 	O.EarlyStop = 2
 	O.Verbose = true
 	O.Loss = &utils.SQErrLoss{}
+	O.Activation = &utils.SoftMax{}
 
 	boosted := NewMultiClass(data, O)
 	fmt.Println("train set accuracy", boosted.Accuracy(data))
@@ -202,6 +203,7 @@ func TestXJSON(Te *testing.T) {
 	O.BaseScore = 0.5
 	O.TreeMethod = "exact"
 	O.Loss = &utils.SQErrLoss{}
+	O.Activation = &utils.SoftMax{}
 	data, err := utils.DataBunchFromLibSVMFile("tests/train.svm", true)
 	if err != nil {
 		Te.Error(err)
@@ -241,6 +243,7 @@ func TestGJSON(Te *testing.T) {
 	O.LearningRate = 0.46
 	O.TreeMethod = "exact"
 	O.Loss = &utils.SQErrLoss{}
+	//I wont add an activation function to check that it gets added
 
 	data, err := utils.DataBunchFromLibSVMFile("tests/train.svm", true)
 	if err != nil {

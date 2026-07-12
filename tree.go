@@ -222,8 +222,8 @@ func (T *Tree) findBetterSplit(featureIndex int, o *TreeOptions) {
 			if nright < int(o.MinChildWeight) {
 				break
 			}
-			gain = 0.5*((sq(sumgLeft)/(sumhLeft+o.Lambda))+(sq(sumgRight)/(sumhRight+o.Lambda))-(sq(sumg)/(sumh+o.Lambda))) - (o.Gamma / 2) // Eq(7) in the xgboost paper
-			//in eq 7 ,gamma is NOT divided by 2. Check!
+			gain = 0.5*((sq(sumgLeft)/(sumhLeft+o.Lambda))+(sq(sumgRight)/(sumhRight+o.Lambda))-(sq(sumg)/(sumh+o.Lambda))) - (o.Gamma) // (o.Gamma / 2) // Eq(7) in the xgboost paper
+			//in eq 7 ,gamma is NOT divided by 2, but it is in my reference implementation (see README).
 			criterion = func() bool { return gain > T.bestScoreSoFar }
 
 		} else {

@@ -33,8 +33,44 @@ func TestCrossValXBoostEarlyStop(Te *testing.T) {
 	O.EarlyStop = 5
 	O.Verbose = false // true
 	O.Loss = &utils.SQErrLoss{}
+	O.Activation = &utils.SoftMax{}
 	//87%, 50 r/3 md/0.200 lr/0.900 ss/0.500 bs/0.100 gam/1.100 lam/2.000 mcw/
 	acc, err := MultiClassCrossValidation(data, 8, &Options{O: O, Conc: false})
+	fmt.Println("Crossvalidation best accuracy:", acc)
+	b := boo.NewMultiClass(data, O)
+	acc = b.Accuracy(testdata)
+	fmt.Printf("Test accuracy: %.3f\n", acc)
+}
+
+func TestCrossValXBoostEarlyStopMLogLoss(Te *testing.T) {
+	data, err := utils.DataBunchFromLibSVMFile("../tests/train.svm", true)
+	if err != nil {
+		Te.Error(err)
+	}
+
+	testdata, err := utils.DataBunchFromLibSVMFile("../tests/test.svm", true)
+	if err != nil {
+		Te.Error(err)
+	}
+
+	O := new(boo.Options)
+	O.XGB = true
+	O.Rounds = 500
+	O.SubSample = 0.9
+	O.Lambda = 1.1
+	O.Gamma = 0.1
+	O.MinChildWeight = 2
+	O.MaxDepth = 3
+	O.LearningRate = 0.2
+	O.BaseScore = 0.5
+	O.TreeMethod = "exact"
+	O.EarlyStop = 5
+	O.Verbose = false          // true
+	O.Loss = &utils.MLogLoss{} /// SQErrLoss{}
+	O.Activation = &utils.SoftMax{}
+	//87%, 50 r/3 md/0.200 lr/0.900 ss/0.500 bs/0.100 gam/1.100 lam/2.000 mcw/
+	acc, err := MultiClassCrossValidation(data, 8, &Options{O: O, Conc: false})
+	fmt.Println("Results for mlogloss:")
 	fmt.Println("Crossvalidation best accuracy:", acc)
 	b := boo.NewMultiClass(data, O)
 	acc = b.Accuracy(testdata)
@@ -64,6 +100,7 @@ func TestCrossValXBoost(Te *testing.T) {
 	O.BaseScore = 0.5
 	O.TreeMethod = "exact"
 	O.Loss = &utils.SQErrLoss{}
+	O.Activation = &utils.SoftMax{}
 	//87%, 50 r/3 md/0.200 lr/0.900 ss/0.500 bs/0.100 gam/1.100 lam/2.000 mcw/
 	acc, err := MultiClassCrossValidation(data, 8, &Options{O: O, Conc: false})
 	fmt.Println("Crossvalidation best accuracy:", acc)

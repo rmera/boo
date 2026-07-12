@@ -22,13 +22,21 @@ func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 	if len(opts) > 0 && opts[0] != nil {
 		O = opts[0]
 	} else {
-		O = DefaultXOptions()
+		O = DefaultOptions()
 	}
 	var ohelabels *mat.Dense
 	var differentlabels []int
+	if O.Activation == nil {
+		log.Printf("NewMultiClass: The Options given don't include an activation function. Will use the default\n")
+		O.Activation = DefaultOptions().Activation
+	}
 	actifunc := O.Activation
+	if O.Loss == nil {
+		log.Printf("NewMultiClass: The Options given don't include an loss function. Will use the default\n")
+		O.Loss = DefaultOptions().Loss
+	}
 	if O.Regression() {
-		actifunc = &utils.Identity{} //I probably don't need this
+		actifunc = &utils.Identity{} //I probably don't need this as setting O.Regression sets it.
 		ohelabels = D.LabelsRegression()
 		differentlabels = []int{0}
 	} else {
