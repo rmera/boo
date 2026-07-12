@@ -9,6 +9,7 @@ import (
 
 	"github.com/rmera/boo"
 	"github.com/rmera/boo/utils"
+	"gonum.org/v1/gonum/stat"
 )
 
 func MonteCarloCrossValidation(D *utils.DataBunch, nreps int, trainingfraction float64, O *boo.Options) ([]float64, error) {
@@ -16,7 +17,7 @@ func MonteCarloCrossValidation(D *utils.DataBunch, nreps int, trainingfraction f
 	ret := make([]float64, 0, nreps)
 	for i := 0; i < nreps; i++ {
 		train, test := utils.ShuffleData(D, trainingfraction)
-		b := boo.NewMultiClass(train)
+		b := boo.NewMultiClass(train, O)
 		if b.Rounds() <= 0 {
 			err = fmt.Errorf("MonteCarloCrossValidation: The %d iteration didn't boosting ensemble, will continue with the others. %w", i, err)
 			continue
@@ -26,18 +27,35 @@ func MonteCarloCrossValidation(D *utils.DataBunch, nreps int, trainingfraction f
 	return ret, err
 }
 
-func RepeatedCrossvalidation(D *utils.DataBunch, nfold, nreps int, O *boo.Options) ([]float64, error) {
-	opts := new(Options)
-	opts.Conc = false
-	opts.O = O
+// Obtains repeated cross-validation. Can be used concurrently, in which case it will send the average of the repetitions
+// through a channel (or an error)
+func RepeatedCrossvalidation(D *utils.DataBunch, nfold, nreps int, opts *Options) ([]float64, error) {
+	//	opts := new(Options)
+	//	opts.Conc = false
+	//	opts.O = O
 	ret := make([]float64, 0, nreps)
 	for i := 0; i < nreps; i++ {
-		r, err := MultiClassCrossValidation(D, nfold, opts)
+		copts := new(Options)
+		copts.Conc = false //just so we don't forget
+		copts.O = opts.O
+		r, err := MultiClassCrossValidation(D, nfold, copts)
 		if err != nil {
+			if opts.Conc {
+				opts.Err <- err
+				opts.Acc <- -1
+				opts.Ochan <- nil
+			}
 			return ret, err
 		}
 		ret = append(ret, r)
 	}
+	if opts.Conc {
+		accu := stat.Mean(ret, nil)
+		opts.Err <- nil
+		opts.Acc <- accu //I use i and not n in case we skip some steps.
+		opts.Ochan <- opts.O
+	}
+
 	return ret, nil
 }
 
@@ -58,28 +76,31 @@ func MultiClassCrossValidation(D *utils.DataBunch, nfold int, opts *Options) (fl
 		log.Printf("Only %d-fold can be performed due to sample size (%d). Error: %v", n, len(D.Data), err)
 	}
 	var i int
+	var fail int = 0
 	for i = 0; i < n; i++ {
 		var b *boo.MultiClass
 		train, test := sampler()
 		if opts.O == nil {
-			b = boo.NewMultiClass(train)
+			return -1, fmt.Errorf("MultiClassCrossValidation:Given nil *Options struct")
+			//		b = boo.NewMultiClass(train)
 		} else {
 			b = boo.NewMultiClass(train, opts.O)
 		}
 		if b.Rounds() <= 0 {
 			log.Printf("The %d-th fold didn't produce a boosting ensemble, will continue with the others", n)
-
+			fail++
 			continue
 		}
 		a := b.Accuracy(test)
 		accus += a
 	}
+	usedfolds := float64(i - fail)
 	if opts.Conc {
 		opts.Err <- nil
-		opts.Acc <- accus / float64(i) //I use i and not n in case we skip some steps.
+		opts.Acc <- accus / usedfolds //I use i and not n in case we skip some steps.
 		opts.Ochan <- opts.O
 	}
-	return accus / float64(n), nil
+	return accus / usedfolds, nil
 }
 
 // Contains options limiting the search-space
@@ -87,6 +108,7 @@ func MultiClassCrossValidation(D *utils.DataBunch, nfold int, opts *Options) (fl
 // in all cases the 3 numbers are: initial, final, step
 type GridOptions struct {
 	XGB            bool
+	Repetitions    int //repeated cross-validation
 	EarlyStop      int
 	Rounds         [3]int
 	MaxDepth       [3]int
@@ -108,6 +130,7 @@ type GridOptions struct {
 
 func (o *GridOptions) Clone() *GridOptions {
 	ret := new(GridOptions)
+	ret.Repetitions = o.Repetitions
 	ret.WriteBest = o.WriteBest
 	ret.EarlyStop = o.EarlyStop
 	ret.XGB = o.XGB
@@ -135,6 +158,7 @@ func (o *GridOptions) Clone() *GridOptions {
 func DefaultGGridOptions() *GridOptions {
 	ret := new(GridOptions)
 	ret.XGB = false
+	ret.Repetitions = 1
 	ret.Rounds = [3]int{2, 100, 1}
 	ret.MaxDepth = [3]int{2, 10, 1}
 	ret.LearningRate = [3]float64{0.01, 0.8, 0.1}
@@ -158,6 +182,7 @@ func DefaultGGridOptions() *GridOptions {
 func DefaultXGridOptions() *GridOptions {
 	ret := new(GridOptions)
 	ret.XGB = true
+	ret.Repetitions = 1
 	ret.Rounds = [3]int{20, 1000, 100}
 	ret.MaxDepth = [3]int{3, 6, 1}
 	ret.LearningRate = [3]float64{0.01, 0.5, 0.15}
@@ -241,7 +266,12 @@ func Grid(data *utils.DataBunch, nfold int, options ...*GridOptions) (float64, [
 									t.Verbose = o.Verbose
 									t.Regression = o.Regression
 									conc := &Options{O: t, Acc: accs[cpus], Err: errs[cpus], Ochan: os[cpus], Conc: true}
-									go MultiClassCrossValidation(data, nfold, conc)
+									if o.Repetitions == 1 {
+										go MultiClassCrossValidation(data, nfold, conc)
+									} else {
+										go RepeatedCrossvalidation(data, nfold, o.Repetitions, conc)
+									}
+
 									cpus++
 									if cpus == o.NCPUs {
 										var err error

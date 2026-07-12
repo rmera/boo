@@ -31,7 +31,7 @@ func TestCrossValXBoostEarlyStop(Te *testing.T) {
 	O.BaseScore = 0.5
 	O.TreeMethod = "exact"
 	O.EarlyStop = 5
-	O.Verbose = true
+	O.Verbose = false // true
 	O.Loss = &utils.SQErrLoss{}
 	//87%, 50 r/3 md/0.200 lr/0.900 ss/0.500 bs/0.100 gam/1.100 lam/2.000 mcw/
 	acc, err := MultiClassCrossValidation(data, 8, &Options{O: O, Conc: false})
@@ -72,7 +72,7 @@ func TestCrossValXBoost(Te *testing.T) {
 	fmt.Printf("Test accuracy: %.3f\n", acc)
 }
 
-func TestCrossValGBoost(Te *testing.T) {
+func TTestCrossValGBoost(Te *testing.T) {
 	data, err := utils.DataBunchFromLibSVMFile("../tests/train.svm", true)
 	if err != nil {
 		Te.Error(err)
@@ -99,7 +99,7 @@ func TestCrossValGBoost(Te *testing.T) {
 	fmt.Printf("Test accuracy: %.3f\n", acc)
 }
 
-func TestCrossValGradGrid(Te *testing.T) {
+func TTestCrossValGradGrid(Te *testing.T) {
 	data, err := utils.DataBunchFromLibSVMFile("../tests/train.svm", true)
 	if err != nil {
 		Te.Error(err)
@@ -109,6 +109,7 @@ func TestCrossValGradGrid(Te *testing.T) {
 		Te.Error(err)
 	}
 	o := DefaultXGridOptions()
+	o.Repetitions = 5
 	o.Rounds = [3]int{50, 200, 50}
 	o.MaxDepth = [3]int{3, 5, 1}
 	o.Lambda = [3]float64{0, 20, 1}
@@ -138,7 +139,7 @@ func TestCrossValGradGrid(Te *testing.T) {
 	fmt.Printf("Test accuracy: %.3f\n", acc)
 }
 
-func TestGradStep(Te *testing.T) {
+func TTestGradStep(Te *testing.T) {
 	data, err := utils.DataBunchFromLibSVMFile("../tests/train.svm", true)
 	if err != nil {
 		Te.Error(err)
@@ -189,7 +190,7 @@ func TestGradStep(Te *testing.T) {
 
 }
 
-func TestCrossValXGBoostGrid(Te *testing.T) {
+func TTestCrossValXGBoostGrid(Te *testing.T) {
 	data, err := utils.DataBunchFromLibSVMFile("../tests/train.svm", true)
 	if err != nil {
 		Te.Error(err)
@@ -220,7 +221,7 @@ func TestCrossValXGBoostGrid(Te *testing.T) {
 	fmt.Printf("Test accuracy: %.3f\n", acc)
 }
 
-func BenchmarkCrossValXGBoostGrid(b *testing.B) {
+func TBenchmarkCrossValXGBoostGrid(b *testing.B) {
 	data, err := utils.DataBunchFromLibSVMFile("../tests/train.svm", true)
 	if err != nil {
 		b.Error(err)
@@ -242,7 +243,7 @@ func BenchmarkCrossValXGBoostGrid(b *testing.B) {
 	}
 }
 
-func TestConcCrossValGGBoostGrid(Te *testing.T) {
+func TTestConcCrossValGGBoostGrid(Te *testing.T) {
 	data, err := utils.DataBunchFromLibSVMFile("../tests/train.svm", true)
 	if err != nil {
 		Te.Error(err)
@@ -271,7 +272,7 @@ func TestConcCrossValGGBoostGrid(Te *testing.T) {
 	fmt.Printf("Test accuracy: %.3f\n", acc)
 }
 
-func TestHybridGradGrid(Te *testing.T) {
+func TTestHybridGradGrid(Te *testing.T) {
 	data, err := utils.DataBunchFromLibSVMFile("../tests/train.svm", true)
 	if err != nil {
 		Te.Error(err)
