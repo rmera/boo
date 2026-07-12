@@ -264,7 +264,7 @@ func Grid(data *utils.DataBunch, nfold int, options ...*GridOptions) (float64, [
 									t.XGB = o.XGB
 									t.EarlyStop = o.EarlyStop
 									t.Verbose = o.Verbose
-									t.Regression = o.Regression
+									t.Regression(o.Regression)
 									conc := &Options{O: t, Acc: accs[cpus], Err: errs[cpus], Ochan: os[cpus], Conc: true}
 									if o.Repetitions == 1 {
 										go MultiClassCrossValidation(data, nfold, conc)
@@ -314,7 +314,7 @@ func rescueConcValues(errors []chan error, accs []chan float64, opts []chan *boo
 			bestacc = tmpacc
 			bestop = tmpop
 			if verbose {
-				if bestop.Regression {
+				if bestop.Regression() {
 					fmt.Printf("New Best RMSD: %.2f, %s\n", 1/bestacc, bestop.String())
 				} else {
 					fmt.Printf("New Best Accuracy %.0f%%, %s\n", bestacc, bestop.String())
@@ -356,7 +356,7 @@ func uniqueFileName(name string) string { // createUniqueFile checks if a file e
 // Writes a model trained on data with bestop hyperparameters as a json file which contains the op the name. It puts the previously
 // obtained (most likely by crossvalidation) accuracy for the hyperparameters in the filename.
 func writeBest(data *utils.DataBunch, bestacc float64, bestop *boo.Options) error {
-	if bestop.Regression {
+	if bestop.Regression() {
 		bestacc = 1 / bestacc
 	}
 	name := uniqueFileName(fmt.Sprintf("xgbmodel%d.json", int(bestacc)))

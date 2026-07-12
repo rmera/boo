@@ -45,7 +45,7 @@ func HybridGradientGrid(data *utils.DataBunch, nfold int, options ...*GridOption
 					t.MinChildWeight = cw
 					t.XGB = o.XGB
 					t.EarlyStop = o.EarlyStop
-					t.Regression = o.Regression
+					t.Regression(o.Regression)
 
 					tprev := t.Clone()
 					CompareAccs := func(t, tprev *boo.Options) (*boo.Options, error) {

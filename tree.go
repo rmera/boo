@@ -347,12 +347,20 @@ func NewFeats(xgboost bool) *Feats {
 }
 
 // Returns a copy of the indexes of the n most important features, or all of them if n<=0
+// If m is the total number of features and m<n, then the m features are returned. I.e. the user is advised that
+// the returned slice might
 func (f *Feats) Feats(n int) []int {
 	if n <= 0 {
 		n = len(f.feat)
 	}
 	ret := make([]int, 0, n)
 	for i := 0; i < n; i++ {
+		//it can happen that the user doesnt know how many features there are, as some of the initial ones in the
+		//vectores might have been excluded, so if the user request more than what we have, we don't panic, we just
+		//return what we have. It's the user's job
+		if i >= len(f.feat) {
+			break
+		}
 		ret = append(ret, f.feat[i])
 	}
 	return ret

@@ -19,12 +19,13 @@ type Options struct {
 	SubSample      float64
 	ColSubSample   float64
 	BaseScore      float64
-	Regression     bool
+	regression     bool
 	MinSample      int //the minimum samples in each tree
 	TreeMethod     string
 	//	EarlyStopRounds      int //stop after n consecutive rounds of no improvement. Not implemented yet.
-	Verbose bool
-	Loss    utils.LossFunc
+	Verbose    bool
+	Loss       utils.LossFunc
+	Activation utils.Activation
 }
 
 // Returns a pointer to an Options structure with the default values
@@ -42,11 +43,24 @@ func DefaultXOptions() *Options {
 	O.LearningRate = 0.3
 	O.BaseScore = 0.5
 	O.TreeMethod = "exact"
-	O.EarlyStop = 10
+	O.EarlyStop = 10 //Be mindful of this
 	O.Loss = &utils.SQErrLoss{}
+	O.Activation = &utils.SoftMax{}
 	O.Verbose = false //just for clarity
 	O.MinSample = 5
 	return O
+}
+
+// Returns whether the options consider a regression (as opposed to a classification)
+// if a bool is given, sets the regression flag to that value _before_ returning it.
+func (o *Options) Regression(do ...bool) bool {
+	if len(do) < 0 {
+		if do[0] {
+			o.Activation = &utils.Identity{}
+		}
+		o.regression = do[0]
+	}
+	return o.regression
 }
 
 func (o *Options) Equal(O *Options) bool {
@@ -93,12 +107,19 @@ func (o *Options) Equal(O *Options) bool {
 	if O.MinSample != o.MinSample {
 		return false
 	}
+	if O.Activation != o.Activation {
+		return false
+	}
+	if O.regression != o.regression {
+		return false
+	}
 	return true
 }
 
 func (o *Options) Clone() *Options {
 	O := new(Options)
 	O.XGB = o.XGB
+	O.regression = o.regression
 	O.Rounds = o.Rounds
 	O.SubSample = o.SubSample
 	O.ColSubSample = o.ColSubSample
@@ -108,10 +129,11 @@ func (o *Options) Clone() *Options {
 	O.MaxDepth = o.MaxDepth
 	O.LearningRate = o.LearningRate
 	O.BaseScore = o.BaseScore
-	O.TreeMethod = "exact"
+	O.TreeMethod = o.TreeMethod
 	O.Loss = o.Loss
 	O.Verbose = o.Verbose
 	O.MinSample = o.MinSample
+	O.Activation = o.Activation
 	return O
 
 }
@@ -127,6 +149,7 @@ func DefaultGOptions() *Options {
 	O.LearningRate = 0.1
 	O.MinChildWeight = 3
 	O.Loss = &utils.MSELoss{}
+	O.Activation = &utils.SoftMax{}
 
 	return O
 }
@@ -138,9 +161,9 @@ func DefaultOptions() *Options {
 // Returns a string representation of the options
 func (O *Options) String() string {
 	if O.XGB {
-		return fmt.Sprintf("xgboost %d r/%d md/%.3f lr/%.3f ss/%.3f bs/%.3f gam/%.3f lam/%.3f mcw/%.3f css", O.Rounds, O.MaxDepth, O.LearningRate, O.SubSample, O.BaseScore, O.Gamma, O.Lambda, O.MinChildWeight, O.ColSubSample)
+		return fmt.Sprintf("xgboost %d r/%d md/%.3f lr/%.3f ss/%.3f bs/%.3f gam/%.3f lam/%.3f mcw/%.3f css/%d es/%s acti/", O.Rounds, O.MaxDepth, O.LearningRate, O.SubSample, O.BaseScore, O.Gamma, O.Lambda, O.MinChildWeight, O.ColSubSample, O.EarlyStop, O.Activation.Name())
 	} else {
-		return fmt.Sprintf("gboost %d r/%d md/%.3f lr/%.3f mcw", O.Rounds, O.MaxDepth, O.LearningRate, O.MinChildWeight)
+		return fmt.Sprintf("gboost %d r/%d md/%.3f lr/%.3f mcw/%s acti/", O.Rounds, O.MaxDepth, O.LearningRate, O.MinChildWeight, O.Activation.Name())
 
 	}
 

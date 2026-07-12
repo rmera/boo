@@ -26,9 +26,9 @@ func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 	}
 	var ohelabels *mat.Dense
 	var differentlabels []int
-	actifunc := utils.SoftMaxDense
-	if O.Regression {
-		actifunc = utils.DoNothingDense
+	actifunc := O.Activation
+	if O.Regression() {
+		actifunc = &utils.Identity{} //I probably don't need this
 		ohelabels = D.LabelsRegression()
 		differentlabels = []int{0}
 	} else {
@@ -46,7 +46,7 @@ func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 	}
 	tin := make([]int, len(D.Data))
 	tval := make([]float64, len(D.Data))
-	probs := actifunc(rawPred, nil)
+	probs := actifunc.Acti(rawPred, nil)
 	grads := mat.NewDense(1, r, nil)
 	hess := mat.NewDense(1, r, nil)
 	tmpPreds := make([]float64, r)
@@ -107,7 +107,7 @@ func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 			tmpPreds = tree.Predict(D.Data, tmpPreds)
 			floats.Scale(O.LearningRate, tmpPreds)
 			utils.AddToCol(rawPred, tmpPreds, k)
-			probs = actifunc(rawPred, probs)
+			probs = actifunc.Acti(rawPred, probs)
 			var currloss float64
 			if O.EarlyStop > 0 || O.Verbose {
 				//    t:=mat.NewDense(1, len(tmpPreds), tmpPreds)
@@ -146,7 +146,7 @@ func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 		}
 		boosters = append(boosters, classes)
 	}
-	return &MultiClass{b: boosters, learningRate: O.LearningRate, probTransform: actifunc, classLabels: differentlabels, baseScore: O.BaseScore, xgb: O.XGB, regression: O.Regression}
+	return &MultiClass{b: boosters, learningRate: O.LearningRate, activation: actifunc, classLabels: differentlabels, baseScore: O.BaseScore, xgb: O.XGB, regression: O.Regression()}
 
 }
 

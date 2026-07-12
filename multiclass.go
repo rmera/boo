@@ -14,15 +14,15 @@ import (
 // MultiClass is a multi-class gradient-boosted (xgboost or "regular")
 // classification ensemble.
 type MultiClass struct {
-	b             [][]*Tree
-	learningRate  float64
-	classLabels   []int
-	probTransform func(*mat.Dense, *mat.Dense) *mat.Dense
-	tmp           []float64
-	predtmp       []float64
-	baseScore     float64
-	regression    bool
-	xgb           bool
+	b            [][]*Tree
+	learningRate float64
+	classLabels  []int
+	activation   utils.Activation // func(*mat.Dense, *mat.Dense) *mat.Dense
+	tmp          []float64
+	predtmp      []float64
+	baseScore    float64
+	regression   bool
+	xgb          bool
 }
 
 func (M *MultiClass) ClassLabels() []int {
@@ -118,7 +118,7 @@ func (M *MultiClass) PredictSingle(instance []float64, predictions ...[]float64)
 	}
 	O := mat.NewDense(1, len(tmp), tmp)
 	D := mat.NewDense(1, len(preds), preds)
-	D = M.probTransform(O, D)
+	D = M.activation.Acti(O, D)
 	preds = D.RawMatrix().Data
 	return preds //SHOULD contain the numbers now.
 }

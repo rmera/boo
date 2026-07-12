@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/rmera/boo/utils"
-	"gonum.org/v1/gonum/mat"
 )
 
 type writestringer interface {
@@ -30,8 +29,10 @@ func (j *jsonTester) WriteString(w string) (int, error) {
 	return 0, nil
 }
 
-var ProbTransformMap map[string]func(*mat.Dense, *mat.Dense) *mat.Dense = map[string]func(*mat.Dense, *mat.Dense) *mat.Dense{
-	"softmax": utils.SoftMaxDense,
+var ActivationMap map[string]utils.Activation = map[string]utils.Activation{
+	"softmax":       &utils.SoftMax{},
+	"identity":      &utils.Identity{},
+	"normalization": &utils.Normalization{},
 }
 
 // LossMap maps the name returned by a utils.LossFunc's Name method to
@@ -55,7 +56,7 @@ func UnJSONMultiClass(r *bufio.Reader, opts ...*Options) (*MultiClass, error) {
 	}
 	ret.learningRate = jmc.LearningRate
 	ret.classLabels = jmc.ClassLabels
-	ret.probTransform = ProbTransformMap[jmc.ProbTransformName]
+	ret.activation = ActivationMap[jmc.ActiName]
 	ret.baseScore = jmc.BaseScore
 	if len(opts) > 0 && opts[0] != nil && jmc.Options != nil {
 		*opts[0] = *jmc.Options.toOptions()
@@ -143,10 +144,10 @@ func JSONMultiClass(m *MultiClass, activationfunctionname string, w writestringe
 }
 
 type JSONMetaData struct {
-	LearningRate      float64
-	ClassLabels       []int
-	ProbTransformName string
-	BaseScore         float64
+	LearningRate float64
+	ClassLabels  []int
+	ActiName     string
+	BaseScore    float64
 	// Options carries the hyperparameters used to train the model. It's
 	// only present if a *Options was given to MarshalMCMetaData/JSONMultiClass,
 	// so its absence (nil) doesn't break unmarshalling of files produced
@@ -170,10 +171,11 @@ type JSONOptions struct {
 	ColSubSample   float64
 	BaseScore      float64
 	Regression     bool
-	MinSample      int
-	TreeMethod     string
-	Verbose        bool
-	LossName       string
+	//	MinSample      int
+	TreeMethod string
+	Verbose    bool
+	LossName   string
+	ActiName   string
 }
 
 // optionsToJSONOptions converts an *Options into its JSON-friendly
@@ -185,6 +187,10 @@ func optionsToJSONOptions(o *Options) *JSONOptions {
 	lossname := ""
 	if o.Loss != nil {
 		lossname = o.Loss.Name()
+	}
+	actiname := ""
+	if o.Activation != nil {
+		actiname = o.Activation.Name()
 	}
 	return &JSONOptions{
 		XGB:            o.XGB,
@@ -198,11 +204,12 @@ func optionsToJSONOptions(o *Options) *JSONOptions {
 		SubSample:      o.SubSample,
 		ColSubSample:   o.ColSubSample,
 		BaseScore:      o.BaseScore,
-		Regression:     o.Regression,
-		MinSample:      o.MinSample,
-		TreeMethod:     o.TreeMethod,
-		Verbose:        o.Verbose,
-		LossName:       lossname,
+		Regression:     o.Regression(),
+		//MinSample:      o.MinSample,
+		TreeMethod: o.TreeMethod,
+		Verbose:    o.Verbose,
+		LossName:   lossname,
+		ActiName:   actiname,
 	}
 }
 
@@ -212,7 +219,7 @@ func (jo *JSONOptions) toOptions() *Options {
 	if jo == nil {
 		return nil
 	}
-	return &Options{
+	ret := &Options{
 		XGB:            jo.XGB,
 		Rounds:         jo.Rounds,
 		MaxDepth:       jo.MaxDepth,
@@ -224,12 +231,15 @@ func (jo *JSONOptions) toOptions() *Options {
 		SubSample:      jo.SubSample,
 		ColSubSample:   jo.ColSubSample,
 		BaseScore:      jo.BaseScore,
-		Regression:     jo.Regression,
-		MinSample:      jo.MinSample,
+		MinSample:      0, //jo.MinSample,
 		TreeMethod:     jo.TreeMethod,
 		Verbose:        jo.Verbose,
 		Loss:           LossMap[jo.LossName],
+		Activation:     ActivationMap[jo.ActiName],
 	}
+
+	ret.Regression(jo.Regression)
+	return ret
 }
 
 // MarshalMCMetaData marshals the metadata for a MultiClass model. An
@@ -240,10 +250,10 @@ func (jo *JSONOptions) toOptions() *Options {
 // giving it an *Options.
 func MarshalMCMetaData(m *MultiClass, probtransformname string, opts ...*Options) ([]byte, error) {
 	r := &JSONMetaData{
-		LearningRate:      m.learningRate,
-		ClassLabels:       m.classLabels,
-		ProbTransformName: probtransformname,
-		BaseScore:         m.baseScore,
+		LearningRate: m.learningRate,
+		ClassLabels:  m.classLabels,
+		ActiName:     m.activation.Name(),
+		BaseScore:    m.baseScore,
 	}
 	if len(opts) > 0 {
 		r.Options = optionsToJSONOptions(opts[0])
