@@ -16,6 +16,18 @@ type DataBunch struct {
 	Keys        []string
 	Labels      []int
 	FloatLabels []float64 //for now we keep both
+	lower       bool      //signals if the Labels are in lower cap
+}
+
+// Sets all keys to lower cap
+func (D *DataBunch) ToLower() {
+	if D.lower {
+		return
+	}
+	for i, v := range D.Keys {
+		D.Keys[i] = strings.ToLower(v)
+	}
+	D.lower = true
 }
 
 // Returns a copy of the receiver. If you give blankdata and its true, you get
@@ -77,6 +89,66 @@ func (D *DataBunch) String() string {
 	}
 	return strings.Join(ret, "\n")
 
+}
+
+// I thought there would be something in the slices package to apply a function to all member of a slice
+// but alas.
+func tolower(s []string) []string {
+	r := make([]string, len(s))
+	for i, v := range s {
+		r[i] = strings.ToLower(v)
+	}
+	return r
+}
+
+// should satisfy error
+type featErr struct {
+	nf []string
+}
+
+func (e *featErr) GetError() error {
+	if e == nil || len(e.nf) == 0 {
+		return nil
+	}
+	f := strings.Join(e.nf, ", ")
+	return fmt.Errorf("Features " + f + " Not found in labels. Will exclude")
+
+}
+
+func newfeatErr() *featErr {
+	r := new(featErr)
+	r.nf = make([]string, 0, 2)
+	return r
+}
+
+// Returns the IDs corresponding to the feature labels given. caps-sensitive if
+// at least one caps is given and the first given is true. If one or more labels are
+// not present it signals so in an error but it still returns the remaining IDs.
+func (D *DataBunch) FeatIDsFromKeys(feats []string, nocaps ...bool) ([]int, error) {
+	var err *featErr
+	var nc bool
+	l := D.Keys
+	ret := make([]int, 0, len(feats))
+	if len(nocaps) > 0 || nocaps[0] {
+		nc = true
+		l = tolower(D.Keys)
+	}
+	for _, v := range feats {
+		if nc {
+			v = strings.ToLower(v)
+		}
+		in := slices.Index(l, v)
+		if in < 0 {
+			if err == nil {
+				err = newfeatErr()
+			}
+			err.nf = append(err.nf, v)
+		} else {
+			ret = append(ret, in)
+		}
+	}
+
+	return ret, err.GetError()
 }
 
 // returns the data in libSVM format
