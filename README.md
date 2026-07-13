@@ -21,7 +21,7 @@ and part of (see below)  [extreme gradient boosting](https://github.com/dmlc/xgb
 
 * Cross-validation and CV-based grid search for hyperparameter optimization.
 
-
+* A few analyses methods (see below).
 
 
 Both the regular gradient-boosting as well as the xgboost implementations are close ports/translations from the following Python implementations:
@@ -32,6 +32,16 @@ Both the regular gradient-boosting as well as the xgboost implementations are cl
 
 by [Matt Bowers](https://github.com/mcb00)
 
+
+## Other references
+
+* We implement the feature stability measure by Nogueira et al. If you use it, please read and cite:
+
+Nogueira, S., Sechidis, C., Brown, G., On the stability of feature selection algorithms, J. Mach. Learn. Res., 2017, 18, 6345 [URL](https://jmlr.org/papers/v18/17-514.html). The reference implementation by the authors (in Python) is [here](https://github.com/nogueirs/JMLR2018).
+
+* We also implement the feature Permutation Importance measure by Altmann et al. If you use it please read and cite:
+
+Altmann, A., Toloşi, L., Sander, O., Lengauer, T., Bioinformatics 2010, 26, 1340 [URL](https://academic.oup.com/bioinformatics/article/26/10/1340/193348).  The R implementation by the authors is [here](http://www.mpi-inf.mpg.de/∼altmann/download/PIMP.R)
 
 ## Things that are missing / in progress
 
