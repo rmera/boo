@@ -9,6 +9,7 @@ import (
 
 	"github.com/rmera/boo/utils"
 	"gonum.org/v1/gonum/mat"
+	"gonum.org/v1/gonum/stat"
 )
 
 // MultiClass is a multi-class gradient-boosted (xgboost or "regular")
@@ -44,11 +45,16 @@ func (M *MultiClass) Accuracy(D *utils.DataBunch, classes ...int) float64 {
 	if len(classes) > 0 && classes[0] > 0 && len(M.predtmp) < classes[0] {
 		M.predtmp = make([]float64, classes[0])
 	}
+	pright := make([][]float64, 0, 10)
+	pwrong := make([][]float64, 0, 10)
 	for i, v := range instances {
 		if !M.regression {
 			p := M.PredictSingleClass(v, M.predtmp)
 			if M.classLabels[p] == actualclasses[i] {
 				right++
+				pright = append(pright, M.PredictSingle(v, M.predtmp))
+			} else {
+				pwrong = append(pwrong, M.PredictSingle(v, M.predtmp))
 			}
 		} else {
 			p := M.PredictSingle(v)[0]
@@ -57,10 +63,74 @@ func (M *MultiClass) Accuracy(D *utils.DataBunch, classes ...int) float64 {
 			//	avvalues += D.FloatLabels[2]
 		}
 	}
+
 	if !M.regression {
 		return 100.0 * (float64(right) / float64(len(instances)))
 	}
 	return 1 / (math.Sqrt(rsd / float64(len(instances)))) //1/RMSD
+}
+
+// Because of the sofmax function we use, I'm not too convinced that theses numers have a lot of value
+// but here they are.
+// This returns 2 slices of slices.
+// The first one contains: First, the average probability for predicting the ith class when the prediction is correct
+// And the standard deviation of that probability.
+// The second one is similar but for the cases where the prediction is wrong.
+func (M *MultiClass) Probabilities(D *utils.DataBunch, classes ...int) ([]float64, []float64) {
+	instances := D.Data
+	actualclasses := D.Labels
+	if len(classes) > 0 && classes[0] > 0 && len(M.predtmp) < classes[0] {
+		M.predtmp = make([]float64, classes[0])
+	}
+	if M.regression {
+		return nil, nil //not well defined in this case
+	}
+	pright := make([]float64, 0, 10)
+	pwrong := make([]float64, 0, 10)
+	for i, v := range instances {
+		p := M.PredictSingleClass(v, M.predtmp)
+		println("class", p) //////////////////////////////////////////
+		if M.classLabels[p] == actualclasses[i] {
+
+			pright = append(pright, M.PredictSingle(v, M.predtmp)[p])
+		} else {
+			pwrong = append(pwrong, M.PredictSingle(v, M.predtmp)[p])
+		}
+	}
+	var r, w []float64
+	if pright != nil {
+		av := stat.Mean(pright, nil)
+		std := stat.StdDev(pright, nil)
+		r = []float64{av, std}
+
+	}
+	if pwrong != nil {
+		av := stat.Mean(pwrong, nil)
+		std := stat.StdDev(pwrong, nil)
+		w = []float64{av, std}
+	}
+	return r, w
+}
+
+func probAv(p [][]float64) ([]float64, []float64) {
+	if p == nil {
+		return nil, nil
+	}
+	av := make([]float64, len(p[0]))
+	avsq := make([]float64, len(p[0]))
+	// std :=make([]float64,len(p[0])
+	for _, v := range p {
+		for j, w := range v {
+			av[j] += w
+			avsq[j] += (w * w)
+		}
+	}
+	n := float64(len(p))
+	for i, v := range av {
+		av[i] = v / n
+		avsq[i] = math.Sqrt(avsq[i]/n - av[i]*av[i]) //this doubles as storage for the stds
+	}
+	return av, avsq
 
 }
 
