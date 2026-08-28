@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/rmera/boo"
 	"github.com/rmera/boo/utils"
@@ -107,8 +108,10 @@ func MultiClassCrossValidation(D *utils.DataBunch, nfold int, opts *Options) (fl
 // of a cross-validation-based grid search for best hyperparameters.
 // in all cases the 3 numbers are: initial, final, step
 type GridOptions struct {
+	Nfold          int
 	XGB            bool
-	Repetitions    int //repeated cross-validation
+	Repetitions    int     //repeated cross-validation
+	RepeatOnlyTol  float64 //only models within this percentage of the best one use repeated cross-validation. All models if <=0
 	EarlyStop      int
 	Rounds         [3]int
 	MaxDepth       [3]int
@@ -130,7 +133,9 @@ type GridOptions struct {
 
 func (o *GridOptions) Clone() *GridOptions {
 	ret := new(GridOptions)
+	ret.Nfold = o.Nfold
 	ret.Repetitions = o.Repetitions
+	ret.RepeatOnlyTol = o.RepeatOnlyTol
 	ret.WriteBest = o.WriteBest
 	ret.EarlyStop = o.EarlyStop
 	ret.XGB = o.XGB
@@ -158,6 +163,7 @@ func (o *GridOptions) Clone() *GridOptions {
 func DefaultGGridOptions() *GridOptions {
 	ret := new(GridOptions)
 	ret.XGB = false
+	ret.Nfold = 5
 	ret.Repetitions = 1
 	ret.Rounds = [3]int{2, 100, 1}
 	ret.MaxDepth = [3]int{2, 10, 1}
@@ -182,7 +188,9 @@ func DefaultGGridOptions() *GridOptions {
 func DefaultXGridOptions() *GridOptions {
 	ret := new(GridOptions)
 	ret.XGB = true
+	ret.Nfold = 5
 	ret.Repetitions = 10
+	ret.RepeatOnlyTol = 20
 	ret.Rounds = [3]int{20, 1000, 100}
 	ret.MaxDepth = [3]int{3, 6, 1}
 	ret.LearningRate = [3]float64{0.01, 0.5, 0.15}
@@ -215,7 +223,7 @@ type Options struct {
 }
 
 // Runs a nfold-cross-validation-based grid search for best hyperparameters within the search space limited by options.
-func Grid(data *utils.DataBunch, nfold int, options ...*GridOptions) (float64, []float64, *boo.Options, error) {
+func Grid(data *utils.DataBunch, options ...*GridOptions) (float64, []float64, *boo.Options, error) {
 	var o *GridOptions
 	if len(options) > 0 && options[0] != nil {
 		o = options[0]
@@ -266,16 +274,16 @@ func Grid(data *utils.DataBunch, nfold int, options ...*GridOptions) (float64, [
 									t.Verbose = o.Verbose
 									t.Regression(o.Regression)
 									conc := &Options{O: t, Acc: accs[cpus], Err: errs[cpus], Ochan: os[cpus], Conc: true}
-									if o.Repetitions == 1 {
-										go MultiClassCrossValidation(data, nfold, conc)
+									if o.Repetitions <= 1 || o.RepeatOnlyTol > 0 {
+										go MultiClassCrossValidation(data, o.Nfold, conc)
 									} else {
-										go RepeatedCrossvalidation(data, nfold, o.Repetitions, conc)
+										go RepeatedCrossvalidation(data, o.Nfold, o.Repetitions, conc)
 									}
 
 									cpus++
 									if cpus == o.NCPUs {
 										var err error
-										bestacc, finaloptions, err = rescueConcValues(errs, accs, os, bestacc, finaloptions, o.Verbose, o.WriteBest, data)
+										bestacc, finaloptions, err = rescueConcValues(errs, accs, os, bestacc, finaloptions, o.Verbose, o.WriteBest, o, data)
 
 										if err != nil {
 											return -1, nil, nil, err
@@ -295,8 +303,15 @@ func Grid(data *utils.DataBunch, nfold int, options ...*GridOptions) (float64, [
 	return bestacc, accuracies, finaloptions, nil
 }
 
+// Not a real error, but something to mark the end of an optimization
+type GradsZeroErr struct{}
+
+func (G *GradsZeroErr) Error() string {
+	return "grads zero"
+}
+
 // Rescues cross-validation results from the given channels (errors, accuracy and the corresponding boosting options)
-func rescueConcValues(errors []chan error, accs []chan float64, opts []chan *boo.Options, bestacc float64, bestop *boo.Options, verbose bool, writebest bool, data *utils.DataBunch) (float64, *boo.Options, error) {
+func rescueConcValues(errors []chan error, accs []chan float64, opts []chan *boo.Options, bestacc float64, bestop *boo.Options, verbose bool, writebest bool, o *GridOptions, data *utils.DataBunch) (float64, *boo.Options, error) {
 	var err error
 	var tmpacc float64
 	var tmpop *boo.Options
@@ -307,17 +322,35 @@ func rescueConcValues(errors []chan error, accs []chan float64, opts []chan *boo
 		}
 		tmpacc = <-accs[i]
 		if tmpacc < 0 {
-			return -1, nil, fmt.Errorf("grads zero") //not a real error, just that the optimizatio is over.
+			return -1, nil, new(GradsZeroErr) //not a real error, just that the optimizatio is over.
 		}
 		tmpop = <-opts[i]
+		if o.RepeatOnlyTol > 100 {
+			o.RepeatOnlyTol = 100
+		}
+		bestacctolerance := o.RepeatOnlyTol / 100
+		if tmpacc >= (bestacc-bestacc*bestacctolerance) && o.RepeatOnlyTol > 0 {
+			ser := &Options{O: tmpop, Acc: nil, Err: nil, Ochan: nil, Conc: false}
+			acc, err := RepeatedCrossvalidation(data, o.Nfold, o.Repetitions, ser)
+			if err != nil {
+				log.Printf("Error running repeated cross-validation: %v. Will skip this value", err)
+				continue
+			}
+			tmpacc = stat.Mean(acc, nil)
+
+		}
+
 		if tmpacc >= bestacc {
+
 			bestacc = tmpacc
 			bestop = tmpop
+			tiempo := time.Now().Format("2006-01-02 15:04:05")
+
 			if verbose {
 				if bestop.Regression() {
-					fmt.Printf("New Best RMSD: %.2f, %s\n", 1/bestacc, bestop.String())
+					fmt.Printf("New Best RMSD: %.2f, %s %s\n", 1/bestacc, bestop.String(), tiempo)
 				} else {
-					fmt.Printf("New Best Accuracy %.0f%%, %s\n", bestacc, bestop.String())
+					fmt.Printf("New Best Accuracy %.0f%%, %s  %s\n", bestacc, bestop.String(), tiempo)
 				}
 			}
 			if writebest {

@@ -123,9 +123,6 @@ func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 				currloss = O.Loss.Loss(kthlabelvector, kthprobs, tmploss)
 			}
 			classes = append(classes, tree)
-			if O.Verbose {
-				log.Printf("round: %d, class: %d train loss = %.3f\n", round, k, currloss)
-			}
 			if O.EarlyStop > 0 {
 				epsilon := 1e-6
 				if currloss <= epsilon {

@@ -147,6 +147,8 @@ func TTestCrossValGradGrid(Te *testing.T) {
 	}
 	o := DefaultXGridOptions()
 	o.Repetitions = 5
+	o.Nfold = 8
+	o.RepeatOnlyTol = 20
 	o.Rounds = [3]int{50, 200, 50}
 	o.MaxDepth = [3]int{3, 5, 1}
 	o.Lambda = [3]float64{0, 20, 1}
@@ -162,7 +164,7 @@ func TTestCrossValGradGrid(Te *testing.T) {
 	o.NCPUs = 4
 	o.Step = 0.05
 
-	bestacc, accuracies, best, err := GradientGrid(data, 5, o)
+	bestacc, accuracies, best, err := GradientGrid(data, 8, o)
 	if err != nil {
 		Te.Error(err)
 	}
@@ -182,6 +184,7 @@ func TTestGradStep(Te *testing.T) {
 		Te.Error(err)
 	}
 	o := DefaultXGridOptions()
+	o.Nfold = 8
 	o.Rounds = [3]int{10, 110, 50}
 	o.MaxDepth = [3]int{3, 5, 1}
 	o.Lambda = [3]float64{0, 10, 1}
@@ -227,7 +230,7 @@ func TTestGradStep(Te *testing.T) {
 
 }
 
-func TTestCrossValXGBoostGrid(Te *testing.T) {
+func TestCrossValXGBoostGrid(Te *testing.T) {
 	data, err := utils.DataBunchFromLibSVMFile("../tests/train.svm", true)
 	if err != nil {
 		Te.Error(err)
@@ -244,8 +247,9 @@ func TTestCrossValXGBoostGrid(Te *testing.T) {
 	o.MinChildWeight = [3]float64{2, 6, 2}
 	o.Verbose = true
 	o.NCPUs = 2
+	o.Nfold = 8
 	o.WriteBest = true
-	bestacc, accuracies, best, err := Grid(data, 8, o)
+	bestacc, accuracies, best, err := Grid(data, o)
 	if err != nil {
 		Te.Error(err)
 	}
@@ -272,8 +276,9 @@ func TBenchmarkCrossValXGBoostGrid(b *testing.B) {
 	o.MinChildWeight = [3]float64{1, 1, 1}
 	o.Verbose = true
 	o.NCPUs = 2
+	o.Nfold = 5
 	for i := 0; i < b.N; i++ {
-		_, _, _, err := Grid(data, 5, o)
+		_, _, _, err := Grid(data, o)
 		if err != nil {
 			b.Error(err)
 		}
@@ -296,7 +301,8 @@ func TTestConcCrossValGGBoostGrid(Te *testing.T) {
 	o.MinChildWeight = [3]float64{2, 6, 2}
 	o.Verbose = true
 	o.NCPUs = 2
-	bestacc, accuracies, best, err := Grid(data, 8, o)
+	o.Nfold = 8
+	bestacc, accuracies, best, err := Grid(data, o)
 	if err != nil {
 		Te.Error(err)
 	}
