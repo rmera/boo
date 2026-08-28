@@ -182,7 +182,7 @@ func DefaultGGridOptions() *GridOptions {
 func DefaultXGridOptions() *GridOptions {
 	ret := new(GridOptions)
 	ret.XGB = true
-	ret.Repetitions = 1
+	ret.Repetitions = 10
 	ret.Rounds = [3]int{20, 1000, 100}
 	ret.MaxDepth = [3]int{3, 6, 1}
 	ret.LearningRate = [3]float64{0.01, 0.5, 0.15}

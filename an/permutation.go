@@ -12,20 +12,20 @@ import (
 // set are scrambled randomly but identically. i.e. using the same random permutation for both each time.
 // it also takes 2 slices to be used as scratch (it allocates for them if they are nil) and returns 2 to be
 // used in future calls. The second one contains the labels in the original order
-func PermuteLabels(D *utils.DataBunch, used, tmp []int) (*utils.DataBunch, []int, []int) {
+func PermuteLabels(D *utils.DataBunch) *utils.DataBunch {
 
 	D2 := D.Copy()
 	nsamples := len(D2.Labels)
-	if used == nil {
-		used = make([]int, 0, nsamples)
-	} else {
-		used = used[:0]
+	// if used == nil {
+	used := make([]int, 0, nsamples)
+	//	} else {
+	//		used = used[:0]
+	//
+	//	}
 
-	}
-
-	if len(tmp) != len(D2.Labels) {
-		tmp = make([]int, nsamples)
-	}
+	// if len(tmp) != len(D2.Labels) {
+	//	tmp := make([]int, nsamples)
+	//	}
 
 	NewIndex := func() int {
 		for {
@@ -48,7 +48,7 @@ func PermuteLabels(D *utils.DataBunch, used, tmp []int) (*utils.DataBunch, []int
 	//	fmt.Println(D2.Labels, "the new ones") //////////////////
 
 	//	tmp = rt            //now tmp has the old values, so it can be used as tmp for the next call to the function
-	return D2, nil, nil // used, tmp
+	return D2 // used, tmp
 }
 
 // A simple non-parametric function for p-value. The fraction of nulls with
@@ -66,7 +66,7 @@ func nonparam(score float64, nulls []float64, twotails ...bool) float64 {
 		}
 	}
 	p := float64(g)
-	if l < g && (len(twotails) > 0 && twotails[0]) {
+	if l > g && (len(twotails) > 0 && twotails[0]) {
 		p = float64(l)
 	}
 	return p / float64(len(nulls))
@@ -98,24 +98,16 @@ func PermutationImportance(xgb *boo.MultiClass, D *utils.DataBunch, features *ID
 		o.Score(t[0])
 	}
 
-	///	labelperms = 10 //////////////////////////////////////DONT FORGET
 	nulls := make([]float64, 0, o.LabelPerms)
-	//	var used, tmp []int
-
-	//	fmt.Println("Labels", D.Labels)
 	ND := D.Copy()
 	for i := 0; i < o.LabelPerms; i++ {
-		ND, _, _ = PermuteLabels(ND, nil, nil)
-		//	fmt.Println("Permuted labels", ND.Labels) ////////////////////////////////////////////////////////
+		ND = PermuteLabels(D) // nil, nil)
 		ns, err := VariableImportance(xgb, ND, features)
-		//	fmt.Println("Permut", i, ns) /////////////////////////////////////
 		if err != nil {
 			return -1, err
 		}
 		nulls = append(nulls, ns[0])
 	}
-
-	//fmt.Println(nulls) ////////////////////////////////////
 
 	//NOTE: Add parametric versions (the reference has normal, log-normal and gamma, in addition to the non-parametric method)
 	sc, _ := o.Score()
