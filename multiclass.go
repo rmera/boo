@@ -89,7 +89,6 @@ func (M *MultiClass) Probabilities(D *utils.DataBunch, classes ...int) ([]float6
 	pwrong := make([]float64, 0, 10)
 	for i, v := range instances {
 		p := M.PredictSingleClass(v, M.predtmp)
-		println("class", p) //////////////////////////////////////////
 		if M.classLabels[p] == actualclasses[i] {
 
 			pright = append(pright, M.PredictSingle(v, M.predtmp)[p])
@@ -142,19 +141,22 @@ func (M *MultiClass) Rounds(class ...int) int {
 	if len(class) > 0 && class[0] >= 0 {
 		c = class[0]
 	}
-	//	println(len(M.b), c) /////////////////////////
-	if M.Classes() < c || len(M.b) <= c {
-		//println(len(M.b), c, M.Classes(), "v2") /////////////////////////
-
+	if c < 0 || c >= len(M.classLabels) {
 		return -1
 	}
-	return len(M.b[c])
+	n := 0
+	for _, ensemble := range M.b {
+		if c < len(ensemble) && ensemble[c] != nil {
+			n++
+		}
+	}
+	return n
 }
 
 // Returns the number of classes, i.e. the number of categories to which
 // each data vector could belong.
 func (M *MultiClass) Classes() int {
-	return len(M.b)
+	return len(M.classLabels)
 }
 
 // Predicts the class to which a single sample belongs. You can give a slice of floats
@@ -183,6 +185,9 @@ func (M *MultiClass) PredictSingle(instance []float64, predictions ...[]float64)
 	}
 	for _, ensemble := range M.b {
 		for class, tree := range ensemble {
+			if tree == nil {
+				continue
+			}
 			tmp[class] += tree.PredictSingle(instance) * M.learningRate
 		}
 	}
@@ -198,6 +203,9 @@ func (M *MultiClass) FeatureImportance() (*Feats, error) {
 	ret := NewFeats(M.xgb)
 	for round, ensemble := range M.b {
 		for class, tree := range ensemble {
+			if tree == nil {
+				continue
+			}
 			_, err := tree.FeatureImportance(M.xgb, ret)
 			if err != nil {
 				return nil, fmt.Errorf("Error with features of tree for class %d, boosting round %d", class, round)

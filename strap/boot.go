@@ -66,7 +66,7 @@ func FuncBootStrap[a any](data []a, f func([]a, int), samples, nboot, ncpus int)
 		limit := ncpus
 		for j := 0; j < ncpus; j++ {
 			id := (i * ncpus) + j //total bootstrap number
-			if id > nboot {
+			if id >= nboot {
 				limit = j
 				break
 			}
@@ -114,8 +114,9 @@ func HistogramConfidence[N RealNumber](data []N, conflevel float64, nboot int, c
 
 	for i, v := range histos {
 		slices.Sort(v)
-		cu := conflevel / 100.0
-		cd := 1 - cu
+		alpha := (1 - conflevel/100.0) / 2
+		cu := 1 - alpha
+		cd := alpha
 		confup[i] = correction(v[int(cu*float64(len(v)))-1])
 		confdown[i] = correction(v[int(cd*float64(len(v)))-1])
 	}

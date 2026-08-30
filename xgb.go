@@ -71,10 +71,10 @@ func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 		if O.ColSubSample < 1 && O.XGB {
 			sampleCols = SubSample(len(D.Data[0]), O.ColSubSample)
 		}
-		if len(sampleIndexes) < O.MinSample {
+		if O.SubSample < 1 && O.XGB && len(sampleIndexes) < O.MinSample {
 			continue
 		}
-		classes := make([]*Tree, 0, 1)
+		classes := make([]*Tree, nlabels)
 		for k := 0; k < nlabels; k++ {
 			if stopped[k] {
 				continue
@@ -122,7 +122,7 @@ func NewMultiClass(D *utils.DataBunch, opts ...*Options) *MultiClass {
 				kthprobs := utils.DenseCol(probs, k)
 				currloss = O.Loss.Loss(kthlabelvector, kthprobs, tmploss)
 			}
-			classes = append(classes, tree)
+			classes[k] = tree
 			if O.EarlyStop > 0 {
 				epsilon := 1e-6
 				if currloss <= epsilon {

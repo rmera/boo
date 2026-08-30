@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
+	"strings"
 	"sync"
 )
 
@@ -57,45 +59,31 @@ type JTree interface {
 	Leaf() bool
 }
 
-// takes a bufio reader containing a json-serialized representation of a Tree, plus a
-// tree creator function, and returns the created JTree
-func UnJSONTree(str string, r *bufio.Reader, creator func(*JSONNode) JTree) (JTree, error) {
-	j := new(JSONNode)
-	err := json.Unmarshal([]byte(str), j)
-	if err != nil {
-		return nil, err
+// jtreeIsNil reports whether t is nil -- either a literal nil interface,
+// or (the common case here) a non-nil interface wrapping a nil concrete
+// pointer, which `t == nil` alone cannot detect once a concrete *Tree
+// variable has been passed through an interface-typed parameter.
+func jtreeIsNil(t JTree) bool {
+	if t == nil {
+		return true
 	}
-	ret := creator(j)
-	if j.Leftid > 0 {
-		s, err := r.ReadString('\n')
-		if err != nil {
-			return nil, err
-		}
-		l, err := UnJSONTree(s, r, creator)
-		if err != nil {
-			return ret, err
-		}
-		ret.Leftf(l)
+	v := reflect.ValueOf(t)
+	switch v.Kind() {
+	case reflect.Ptr, reflect.Map, reflect.Slice, reflect.Chan, reflect.Func, reflect.Interface:
+		return v.IsNil()
+	default:
+		return false
 	}
-	if j.Rightid > 0 {
-		s, err := r.ReadString('\n')
-		if err != nil {
-			return nil, err
-		}
-
-		r, err := UnJSONTree(s, r, creator)
-		if err != nil {
-			return ret, err
-		}
-		ret.Rightf(r)
-
-	}
-	return ret, nil
 }
 
 // takes a JSON-able tree and returns it as a slice of json-serialized []byte,
-// where each element in the slice is a node.
+// where each element in the slice is a node. A nil t (including a nil
+// concrete tree passed in through the JTree interface) is written as a
+// single "NIL" marker line instead of being unmarshalled.
 func JSONTree(t JTree, ids ...*idGiver) ([][]byte, uint, error) {
+	if jtreeIsNil(t) {
+		return [][]byte{[]byte("NIL")}, 0, nil
+	}
 	var id *idGiver
 	if len(ids) == 0 {
 		id = &idGiver{} //first tree, the next ID will be one
@@ -130,4 +118,45 @@ func JSONTree(t JTree, ids ...*idGiver) ([][]byte, uint, error) {
 	rslice = append(rslice, l...)
 	rslice = append(rslice, r...)
 	return rslice, ID, err
+}
+
+// takes a bufio reader containing a json-serialized representation of a Tree, plus a
+// tree creator function, and returns the created JTree. A line containing
+// only the "NIL" marker (written by JSONTree for a nil tree) is recognized
+// before attempting JSON unmarshalling, and returns (nil, nil).
+func UnJSONTree(str string, r *bufio.Reader, creator func(*JSONNode) JTree) (JTree, error) {
+	if strings.TrimSpace(str) == "NIL" {
+		return nil, nil
+	}
+	j := new(JSONNode)
+	err := json.Unmarshal([]byte(str), j)
+	if err != nil {
+		return nil, err
+	}
+	ret := creator(j)
+	if j.Leftid > 0 {
+		s, err := r.ReadString('\n')
+		if err != nil {
+			return nil, err
+		}
+		l, err := UnJSONTree(s, r, creator)
+		if err != nil {
+			return ret, err
+		}
+		ret.Leftf(l)
+	}
+	if j.Rightid > 0 {
+		s, err := r.ReadString('\n')
+		if err != nil {
+			return nil, err
+		}
+
+		r, err := UnJSONTree(s, r, creator)
+		if err != nil {
+			return ret, err
+		}
+		ret.Rightf(r)
+
+	}
+	return ret, nil
 }

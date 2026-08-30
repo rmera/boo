@@ -23,7 +23,7 @@ func main() {
 	boosted := boo.NewMultiClass(data, O)
 	fmt.Println("train set accuracy", boosted.Accuracy(data))
 
-	o := cv.DefaultXGridOptions()
+	o := cv.DefaultGridOptions()
 	o.Rounds = [3]int{5, 30, 5}
 	o.MaxDepth = [3]int{3, 4, 1}
 	o.LearningRate = [3]float64{0.1, 0.3, 0.1}
@@ -31,7 +31,8 @@ func main() {
 	o.MinChildWeight = [3]float64{2, 6, 2}
 	o.Verbose = true
 	o.NCPUs = 2
-	bestacc, accuracies, best, err := cv.Grid(data, 8, o)
+	o.Nfold = 8
+	bestacc, accuracies, best, err := cv.Grid(data, o)
 	if err != nil {
 		panic(err)
 	}
@@ -40,7 +41,7 @@ func main() {
 	fmt.Println("All accuracies:", accuracies)
 
 	//You probably want to expand the search space for this one.
-	bestacc, accuracies, best, err = cv.GradientGrid(data, 5, o)
+	bestacc, accuracies, best, err = cv.GradientGrid(data, o)
 	if err != nil {
 		panic(err)
 	}

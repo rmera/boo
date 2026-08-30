@@ -39,7 +39,7 @@ func checkAgainstOptions(o *boo.Options, co *GridOptions) error {
 		return n("Lambda %v", o.Lambda)
 	}
 	if o.MinChildWeight < co.MinChildWeight[0] || o.MinChildWeight > co.MinChildWeight[1] {
-		return n("MinChildWeight %d", o.MinChildWeight)
+		return n("MinChildWeight %3.1f", o.MinChildWeight)
 	}
 	if o.Gamma < co.Gamma[0] || o.Gamma > co.Gamma[1] {
 		return n("Gamma %v", o.Gamma)
@@ -72,7 +72,7 @@ func currentValue(O *boo.Options, param string) float64 {
 	}
 }
 
-func ParamaterGradStep(D *utils.DataBunch, Op *boo.Options, CVO *GridOptions, param string, step, fractiondelta, currentAccuracy float64, nfold int, central bool, out chan *boo.Options) {
+func ParamaterGradStep(D *utils.DataBunch, Op *boo.Options, CVO *GridOptions, param string, step, fractiondelta, currentAccuracy float64, central bool, out chan *boo.Options) {
 	fd := fractiondelta
 	O := Op.Clone()
 	type myf func(*boo.Options) *boo.Options
@@ -96,7 +96,7 @@ func ParamaterGradStep(D *utils.DataBunch, Op *boo.Options, CVO *GridOptions, pa
 	pluso := make(chan *boo.Options)
 	plusacc := make(chan float64)
 	conc := &Options{O: pO, Acc: plusacc, Err: pluserr, Ochan: pluso, Conc: true}
-	go MultiClassCrossValidation(D, nfold, conc)
+	go MultiClassCrossValidation(D, CVO.Nfold, conc)
 
 	var minerr chan error
 	var mino chan *boo.Options
@@ -105,14 +105,17 @@ func ParamaterGradStep(D *utils.DataBunch, Op *boo.Options, CVO *GridOptions, pa
 	if central {
 		mO := f[param][0](O.Clone())
 		if mO.Check() != nil {
+			<-pluserr
+			<-plusacc
+			<-pluso
 			out <- O
-
+			return
 		}
 		minerr = make(chan error)
 		mino = make(chan *boo.Options)
 		minacc = make(chan float64)
 		conc := &Options{O: mO, Acc: minacc, Err: minerr, Ochan: mino, Conc: true}
-		go MultiClassCrossValidation(D, nfold, conc)
+		go MultiClassCrossValidation(D, CVO.Nfold, conc)
 	}
 
 	err := <-pluserr
@@ -120,7 +123,13 @@ func ParamaterGradStep(D *utils.DataBunch, Op *boo.Options, CVO *GridOptions, pa
 	var der float64
 	_ = <-pluso
 	if err != nil {
+		if central {
+			<-minerr
+			<-mino
+			<-minacc
+		}
 		out <- O
+		return
 	}
 	h := fd * currentValue(O, param)
 	if !central {
@@ -135,8 +144,9 @@ func ParamaterGradStep(D *utils.DataBunch, Op *boo.Options, CVO *GridOptions, pa
 		_ = <-mino
 		if err != nil {
 			out <- O
+			return
 		}
-		der = (pacc - macc) / 2 * h
+		der = (pacc - macc) / (2 * h)
 	}
 	prev := O.Clone()
 
@@ -170,7 +180,7 @@ func ParamaterGradStep(D *utils.DataBunch, Op *boo.Options, CVO *GridOptions, pa
 	return
 }
 
-func GradStep(Ori *boo.Options, CVO *GridOptions, D *utils.DataBunch, step, fractiondelta float64, nfold int, central bool, out chan *boo.Options) *boo.Options {
+func GradStep(Ori *boo.Options, CVO *GridOptions, D *utils.DataBunch, step, fractiondelta float64, central bool, out chan *boo.Options) *boo.Options {
 	O := Ori
 	if out != nil {
 		O = Ori.Clone()
@@ -179,7 +189,7 @@ func GradStep(Ori *boo.Options, CVO *GridOptions, D *utils.DataBunch, step, frac
 	if !central {
 		var err error
 		conc := &Options{O: O, Acc: nil, Err: nil, Ochan: nil, Conc: false}
-		curracc, err = MultiClassCrossValidation(D, nfold, conc)
+		curracc, err = MultiClassCrossValidation(D, CVO.Nfold, conc)
 		if err != nil {
 			return Ori
 		}
@@ -187,7 +197,7 @@ func GradStep(Ori *boo.Options, CVO *GridOptions, D *utils.DataBunch, step, frac
 	gm := map[string]chan *boo.Options{"Gamma": make(chan *boo.Options), "Lambda": make(chan *boo.Options), "SubSample": make(chan *boo.Options), "ColSubSample": make(chan *boo.Options), "LearningRate": make(chan *boo.Options), "Rounds": make(chan *boo.Options)}
 
 	for k, v := range gm {
-		go ParamaterGradStep(D, O, CVO, k, step, fractiondelta, curracc, nfold, central, v)
+		go ParamaterGradStep(D, O, CVO, k, step, fractiondelta, curracc, central, v)
 	}
 	O.Gamma = (<-gm["Gamma"]).Gamma
 	O.Lambda = (<-gm["Lambda"]).Lambda
@@ -217,12 +227,12 @@ func setSomeOptionsToMid(o *boo.Options, co *GridOptions) *boo.Options {
 }
 
 // uses 5 gorutines.
-func GradientGrid(data *utils.DataBunch, nfold int, options ...*GridOptions) (float64, []float64, *boo.Options, error) {
+func GradientGrid(data *utils.DataBunch, options ...*GridOptions) (float64, []float64, *boo.Options, error) {
 	var o *GridOptions
 	if len(options) > 0 && options[0] != nil {
 		o = options[0]
 	} else {
-		o = DefaultXGridOptions()
+		o = DefaultGridOptions()
 	}
 	defaultoptions := boo.DefaultGOptions
 	if o.XGB {
@@ -244,7 +254,7 @@ func GradientGrid(data *utils.DataBunch, nfold int, options ...*GridOptions) (fl
 			t.XGB = o.XGB
 			tprev := t.Clone()
 			CompareAccs := func(t, tprev *boo.Options) (*boo.Options, error) {
-				acc, err := MultiClassCrossValidation(data, 5, &Options{O: t, Conc: false})
+				acc, err := MultiClassCrossValidation(data, o.Nfold, &Options{O: t, Conc: false})
 				if err != nil {
 					return nil, err
 				}
@@ -280,7 +290,7 @@ func GradientGrid(data *utils.DataBunch, nfold int, options ...*GridOptions) (fl
 			strikes := 0
 			for s := 0; s < o.NSteps; s++ {
 				t1 := t.Clone()
-				t = GradStep(t, o, data, o.Step, o.DeltaFraction, nfold, o.Central, nil)
+				t = GradStep(t, o, data, o.Step, o.DeltaFraction, o.Central, nil)
 				if t.Equal(t1) {
 					strikes++
 					t = fuzzOptions(t, 0.2) //switch to 0.1

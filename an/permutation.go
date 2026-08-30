@@ -66,8 +66,8 @@ func nonparam(score float64, nulls []float64, twotails ...bool) float64 {
 		}
 	}
 	p := float64(g)
-	if l > g && (len(twotails) > 0 && twotails[0]) {
-		p = float64(l)
+	if len(twotails) > 0 && twotails[0] {
+		p = 2 * float64(min(g, l))
 	}
 	return p / float64(len(nulls))
 }

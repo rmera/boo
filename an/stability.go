@@ -32,6 +32,7 @@ func col(f [][]float64, i int, dst ...[]float64) []float64 {
 	if len(dst) > 0 && len(dst[0]) == len(f) {
 		d = dst[0]
 	}
+	d = make([]float64, len(f))
 	for j, v := range f {
 		d[j] = v[i]
 	}
@@ -167,8 +168,8 @@ func StabilityAndVariance(Z [][]float64) (float64, float64) {
 		floats.Mul(row, hatPF)
 		term1 := (floats.Sum(row) / float64(len(row)))
 		term2 := (k[i] * kbar) / (d * d)
-		term3 := 2*term2 - k[i]/d - kbar/(d+1)
-		phi[i] = (term1 - term2 - (stab/2)*term3) / denom
+		term3 := 2*term2 - k[i]/d - kbar/d + 1
+		phi[i] = (term1 - term2 + (stab/2)*term3) / denom
 	}
 	phiav := Mean(phi)
 	for i, v := range phi {
@@ -220,7 +221,7 @@ func MakeGrouperFunc(groups [][]int) func([]int) ([]int, int) {
 func StabilityOnDataVar(D *utils.DataBunch, O *boo.Options, NBoot, Nfeat int, groupfunc ...func([]int) ([]int, int)) (float64, float64) {
 	//This is the main API function, what I would expect end users to call the most.
 	var group func([]int) ([]int, int) = func(f []int) ([]int, int) { return f, len(D.Keys) }
-	if len(groupfunc) >= 0 {
+	if len(groupfunc) > 0 {
 		group = groupfunc[0]
 	}
 	bD := D.Copy(true)

@@ -145,7 +145,7 @@ func TTestCrossValGradGrid(Te *testing.T) {
 	if err != nil {
 		Te.Error(err)
 	}
-	o := DefaultXGridOptions()
+	o := DefaultGridOptions()
 	o.Repetitions = 5
 	o.Nfold = 8
 	o.RepeatOnlyTol = 20
@@ -164,7 +164,7 @@ func TTestCrossValGradGrid(Te *testing.T) {
 	o.NCPUs = 4
 	o.Step = 0.05
 
-	bestacc, accuracies, best, err := GradientGrid(data, 8, o)
+	bestacc, accuracies, best, err := GradientGrid(data, o)
 	if err != nil {
 		Te.Error(err)
 	}
@@ -183,7 +183,7 @@ func TTestGradStep(Te *testing.T) {
 	if err != nil {
 		Te.Error(err)
 	}
-	o := DefaultXGridOptions()
+	o := DefaultGridOptions()
 	o.Nfold = 8
 	o.Rounds = [3]int{10, 110, 50}
 	o.MaxDepth = [3]int{3, 5, 1}
@@ -205,7 +205,7 @@ func TTestGradStep(Te *testing.T) {
 	var acc = 0.0
 	for i := 0; i < 50; i++ {
 		fmt.Println("A step will run", op)
-		op = GradStep(op, o, data, o.Step, o.DeltaFraction, 5, o.Central, nil)
+		op = GradStep(op, o, data, o.Step, o.DeltaFraction, o.Central, nil)
 		fmt.Println("A grad step ran")
 		if op == nil {
 			fmt.Println("got nil  option from grad step")
@@ -239,7 +239,7 @@ func TestCrossValXGBoostGrid(Te *testing.T) {
 	if err != nil {
 		Te.Error(err)
 	}
-	o := DefaultXGridOptions()
+	o := DefaultGridOptions()
 	o.Rounds = [3]int{5, 30, 5}
 	o.MaxDepth = [3]int{3, 5, 1}
 	o.LearningRate = [3]float64{0.05, 0.3, 0.1}
@@ -267,7 +267,7 @@ func TBenchmarkCrossValXGBoostGrid(b *testing.B) {
 	if err != nil {
 		b.Error(err)
 	}
-	o := DefaultXGridOptions()
+	o := DefaultGridOptions()
 	o.Rounds = [3]int{20, 30, 10}
 	o.MaxDepth = [3]int{7, 9, 1}
 	//	o.EarlyStop = 300
@@ -285,7 +285,7 @@ func TBenchmarkCrossValXGBoostGrid(b *testing.B) {
 	}
 }
 
-func TTestConcCrossValGGBoostGrid(Te *testing.T) {
+func TestHybridGradGrid(Te *testing.T) {
 	data, err := utils.DataBunchFromLibSVMFile("../tests/train.svm", true)
 	if err != nil {
 		Te.Error(err)
@@ -294,37 +294,7 @@ func TTestConcCrossValGGBoostGrid(Te *testing.T) {
 	if err != nil {
 		Te.Error(err)
 	}
-	o := DefaultGGridOptions()
-	o.Rounds = [3]int{5, 10, 5}
-	o.MaxDepth = [3]int{3, 5, 1}
-	o.LearningRate = [3]float64{0.1, 0.3, 0.1}
-	o.MinChildWeight = [3]float64{2, 6, 2}
-	o.Verbose = true
-	o.NCPUs = 2
-	o.Nfold = 8
-	bestacc, accuracies, best, err := Grid(data, o)
-	if err != nil {
-		Te.Error(err)
-	}
-	fmt.Println("Crossvalidation best accuracy:", bestacc)
-	fmt.Printf("With %d rounds, %d maxdepth and %.3f learning rate\n", best.Rounds, best.MaxDepth, best.LearningRate)
-	fmt.Println("All accuracies:", accuracies)
-
-	b := boo.NewMultiClass(data, best)
-	acc := b.Accuracy(testdata)
-	fmt.Printf("Test accuracy: %.3f\n", acc)
-}
-
-func TTestHybridGradGrid(Te *testing.T) {
-	data, err := utils.DataBunchFromLibSVMFile("../tests/train.svm", true)
-	if err != nil {
-		Te.Error(err)
-	}
-	testdata, err := utils.DataBunchFromLibSVMFile("../tests/test.svm", true)
-	if err != nil {
-		Te.Error(err)
-	}
-	o := DefaultXGridOptions()
+	o := DefaultGridOptions()
 	o.Rounds = [3]int{50, 550, 100}
 	o.MaxDepth = [3]int{3, 5, 1}
 	o.Lambda = [3]float64{0, 20, 5}
@@ -341,7 +311,7 @@ func TTestHybridGradGrid(Te *testing.T) {
 	o.Step = 0.05
 	o.WriteBest = true
 
-	bestacc, accuracies, best, err := HybridGradientGrid(data, 5, o)
+	bestacc, accuracies, best, err := HybridGradientGrid(data, o)
 	if err != nil {
 		Te.Error(err)
 	}

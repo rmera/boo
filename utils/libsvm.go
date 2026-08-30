@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -119,11 +120,22 @@ func ParseLibSVMFromReader(r io.Reader, hasHeader bool, zerobased ...bool) (*Dat
 	var labels []int
 	var flabels []float64
 	cont := 0
+	end_next := false
 	for {
 		//	println("Will read the line", cont+1) ///////
+		if end_next {
+			break
+		}
 		line, err2 = buf.ReadString('\n')
 		if err2 != nil {
-			break
+			if errors.Is(err2, io.EOF) {
+				end_next = true
+			} else {
+				break
+			}
+		}
+		if strings.TrimSpace(line) == "" {
+			continue
 		}
 		var err error
 		if hasHeader && cont == 0 {
@@ -145,10 +157,9 @@ func ParseLibSVMFromReader(r io.Reader, hasHeader bool, zerobased ...bool) (*Dat
 		data = append(data, t)
 		labels = append(labels, l)
 		flabels = append(flabels, fl)
-
 		cont++
 	}
-	if err2.Error() != "EOF" {
+	if !errors.Is(err2, io.EOF) {
 		return nil, err2
 	}
 

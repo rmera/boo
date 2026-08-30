@@ -66,42 +66,38 @@ func MultiClassCrossValidation(D *utils.DataBunch, nfold int, opts *Options) (fl
 	var accus float64
 	n, sampler, err := utils.CrossValidationSamples(D, nfold, true)
 	if err != nil {
-		if n == 0 {
-			if opts.Conc {
-				opts.Err <- err
-				opts.Acc <- -1
-				opts.Ochan <- nil
-			}
-			return 0, err
-		}
-		log.Printf("Only %d-fold can be performed due to sample size (%d). Error: %v", n, len(D.Data), err)
+		err = fmt.Errorf("Only %d-fold can be performed due to sample size (%d). Error: %v", n, len(D.Data), err)
 	}
-	var i int
-	var fail int = 0
-	for i = 0; i < n; i++ {
+
+	for i := 0; i < n; i++ {
+
+		if err != nil { //skips this loop if there was a previous failure
+			break
+		}
+
 		var b *boo.MultiClass
 		train, test := sampler()
 		if opts.O == nil {
-			return -1, fmt.Errorf("MultiClassCrossValidation:Given nil *Options struct")
-			//		b = boo.NewMultiClass(train)
-		} else {
-			b = boo.NewMultiClass(train, opts.O)
+			err = fmt.Errorf("MultiClassCrossValidation:Given nil *Options struct")
+			break
 		}
+		b = boo.NewMultiClass(train, opts.O)
 		if b.Rounds() <= 0 {
-			log.Printf("The %d-th fold didn't produce a boosting ensemble, will continue with the others", n)
-			fail++
-			continue
+			//b.Rounds()<0 means there is no first 'class' or set of trees for the probability of the
+			//first label.
+			err = fmt.Errorf("The %d-th fold didn't produce a boosting ensemble", i)
+			break
 		}
 		a := b.Accuracy(test)
 		accus += a
 	}
-	usedfolds := float64(i - fail)
 	if opts.Conc {
-		opts.Err <- nil
-		opts.Acc <- accus / usedfolds //I use i and not n in case we skip some steps.
+		opts.Err <- err
+		opts.Acc <- accus / float64(n) //n is not accurate if we aborted earlier, but in that case we'll also send an error
+		//so the results are not to be used.
 		opts.Ochan <- opts.O
 	}
-	return accus / usedfolds, nil
+	return accus / float64(n), err
 }
 
 // Contains options limiting the search-space
@@ -158,34 +154,9 @@ func (o *GridOptions) Clone() *GridOptions {
 }
 
 // Default options for crossvalidation grid search for
-// gradient boosting hyperparameters. Note that these are not
-// necessarily good choices. These defaults are NOT considered part of the API
-func DefaultGGridOptions() *GridOptions {
-	ret := new(GridOptions)
-	ret.XGB = false
-	ret.Nfold = 5
-	ret.Repetitions = 1
-	ret.Rounds = [3]int{2, 100, 1}
-	ret.MaxDepth = [3]int{2, 10, 1}
-	ret.LearningRate = [3]float64{0.01, 0.8, 0.1}
-	ret.MinChildWeight = [3]float64{2, 6, 1}
-	//The point of this is to ensure these are not looped over,
-	//only one "iteration" is taken on each, as the "upper limit" is
-	//smaller than the lower limit+step.
-	ret.Gamma = [3]float64{0.0, 1, 2}
-	ret.Lambda = [3]float64{0, 1, 2}
-	ret.SubSample = [3]float64{1, 1, 2}
-	ret.ColSubSample = [3]float64{1, 1, 2}
-	ret.Verbose = false
-	ret.EarlyStop = boo.DefaultGOptions().EarlyStop
-	ret.WriteBest = true
-	return ret
-}
-
-// Default options for crossvalidation grid search for
 // XGBoost hyperparameters. Note that these are not necessaritly
 // good choices. These defaults are NOT considered part of the API.
-func DefaultXGridOptions() *GridOptions {
+func DefaultGridOptions() *GridOptions {
 	ret := new(GridOptions)
 	ret.XGB = true
 	ret.Nfold = 5
@@ -206,20 +177,17 @@ func DefaultXGridOptions() *GridOptions {
 	ret.WriteBest = true
 	ret.EarlyStop = boo.DefaultXOptions().EarlyStop
 	ret.Verbose = false
-	ret.NCPUs = 1
+	ret.NCPUs = -1
 	return ret
 }
 
-func DefaultGridOptions() *GridOptions {
-	return DefaultXGridOptions()
-}
-
 type Options struct {
-	O     *boo.Options
-	Conc  bool
-	Acc   chan float64
-	Ochan chan *boo.Options
-	Err   chan error
+	O      *boo.Options
+	Strict bool
+	Conc   bool
+	Acc    chan float64
+	Ochan  chan *boo.Options
+	Err    chan error
 }
 
 // Runs a nfold-cross-validation-based grid search for best hyperparameters within the search space limited by options.
@@ -228,12 +196,9 @@ func Grid(data *utils.DataBunch, options ...*GridOptions) (float64, []float64, *
 	if len(options) > 0 && options[0] != nil {
 		o = options[0]
 	} else {
-		o = DefaultXGridOptions()
+		o = DefaultGridOptions()
 	}
-	defaultoptions := boo.DefaultGOptions
-	if o.XGB {
-		defaultoptions = boo.DefaultXOptions
-	}
+	defaultoptions := boo.DefaultXOptions
 	var finaloptions *boo.Options
 	accuracies := make([]float64, 0, 100)
 	bestacc := 0.0
@@ -300,7 +265,12 @@ func Grid(data *utils.DataBunch, options ...*GridOptions) (float64, []float64, *
 			}
 		}
 	}
-	return bestacc, accuracies, finaloptions, nil
+	var err error
+	if cpus != 0 {
+		bestacc, finaloptions, err = rescueConcValues(errs[:cpus], accs[:cpus], os[:cpus], bestacc, finaloptions, o.Verbose, o.WriteBest, o, data)
+
+	}
+	return bestacc, accuracies, finaloptions, err
 }
 
 // Not a real error, but something to mark the end of an optimization
@@ -315,25 +285,32 @@ func rescueConcValues(errors []chan error, accs []chan float64, opts []chan *boo
 	var err error
 	var tmpacc float64
 	var tmpop *boo.Options
+	if o.RepeatOnlyTol > 100 {
+		o.RepeatOnlyTol = 100 //I decided to deal with a wrong option here. Maybe I shoudl just return an error.
+	}
+
 	for i, v := range errors {
 		err = <-v
-		if err != nil {
-			return -1, nil, err
-		}
+		//we always 'unclog' the other 2 channels, before checking for error.
+		//so if this particular crossval returned an error we can just continue
+		//and read the next results.
 		tmpacc = <-accs[i]
+		tmpop = <-opts[i]
+
+		if err != nil {
+			log.Printf("A cross-validation failed: %v. Will skip this value", err)
+			continue //not really an issue, we just get the next crossvalidation
+		}
 		if tmpacc < 0 {
 			return -1, nil, new(GradsZeroErr) //not a real error, just that the optimizatio is over.
 		}
-		tmpop = <-opts[i]
-		if o.RepeatOnlyTol > 100 {
-			o.RepeatOnlyTol = 100
-		}
+
 		bestacctolerance := o.RepeatOnlyTol / 100
 		if tmpacc >= (bestacc-bestacc*bestacctolerance) && o.RepeatOnlyTol > 0 {
 			ser := &Options{O: tmpop, Acc: nil, Err: nil, Ochan: nil, Conc: false}
 			acc, err := RepeatedCrossvalidation(data, o.Nfold, o.Repetitions, ser)
 			if err != nil {
-				log.Printf("Error running repeated cross-validation: %v. Will skip this value", err)
+				log.Printf("Error running repeated cross-validation for possible new best model: %v. Will skip it", err)
 				continue
 			}
 			tmpacc = stat.Mean(acc, nil)

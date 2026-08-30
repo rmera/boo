@@ -136,7 +136,7 @@ func PrintDenseMatrix(m *mat.Dense) string {
 func DenseCol(D *mat.Dense, col int) *mat.Dense {
 	raw := D.RawMatrix()
 	r, c := D.Dims()
-	if col > c {
+	if col >= c {
 		panic(fmt.Sprintf("DenseCol: Requested column %d of matrix with %d columns: %v", col, c, D))
 	}
 	data := raw.Data
@@ -152,7 +152,7 @@ func DenseCol(D *mat.Dense, col int) *mat.Dense {
 func AddToCol(D *mat.Dense, s []float64, col int) {
 	raw := D.RawMatrix()
 	r, c := D.Dims()
-	if col > c {
+	if col >= c {
 		panic(fmt.Sprintf("AddToCol: Requested column %d of matrix with %d columns: %v", col, c, D))
 	}
 	if len(s) != r {

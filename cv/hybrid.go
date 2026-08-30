@@ -8,12 +8,12 @@ import (
 )
 
 // uses 5 gorutines.
-func HybridGradientGrid(data *utils.DataBunch, nfold int, options ...*GridOptions) (float64, []float64, *boo.Options, error) {
+func HybridGradientGrid(data *utils.DataBunch, options ...*GridOptions) (float64, []float64, *boo.Options, error) {
 	var o *GridOptions
 	if len(options) > 0 && options[0] != nil {
 		o = options[0]
 	} else {
-		o = DefaultXGridOptions()
+		o = DefaultGridOptions()
 	}
 	defaultoptions := boo.DefaultGOptions
 	if o.XGB {
@@ -49,7 +49,7 @@ func HybridGradientGrid(data *utils.DataBunch, nfold int, options ...*GridOption
 
 					tprev := t.Clone()
 					CompareAccs := func(t, tprev *boo.Options) (*boo.Options, error) {
-						acc, err := MultiClassCrossValidation(data, 5, &Options{O: t, Conc: false})
+						acc, err := MultiClassCrossValidation(data, o.Nfold, &Options{O: t, Conc: false})
 						if err != nil {
 							return nil, err
 						}
@@ -82,7 +82,7 @@ func HybridGradientGrid(data *utils.DataBunch, nfold int, options ...*GridOption
 					strikes := 0
 					for s := 0; s < o.NSteps; s++ {
 						t1 := t.Clone()
-						t = GradStep(t, o, data, o.Step, o.DeltaFraction, nfold, o.Central, nil)
+						t = GradStep(t, o, data, o.Step, o.DeltaFraction, o.Central, nil)
 						if t.Equal(t1) {
 							strikes++
 							t = fuzzOptions(t, 0.2) //switch to 0.1

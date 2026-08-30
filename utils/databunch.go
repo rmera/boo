@@ -78,7 +78,7 @@ func (D *DataBunch) String() string {
 	ret := make([]string, 0, 1+len(D.Data))
 	ret = append(ret, "Labels "+strings.Join(D.Keys, " "))
 	for i, v := range D.Data {
-		dline := make([]string, len(v)+1)
+		dline := make([]string, 1, len(v)+1)
 		dline[0] = fmt.Sprintf("%3d", D.getithLabel(i))
 		for _, w := range v {
 			s := fmt.Sprintf("%5.4f", w)
@@ -129,7 +129,7 @@ func (D *DataBunch) FeatIDsFromKeys(feats []string, nocaps ...bool) ([]int, erro
 	var nc bool
 	l := D.Keys
 	ret := make([]int, 0, len(feats))
-	if len(nocaps) > 0 || nocaps[0] {
+	if len(nocaps) > 0 && nocaps[0] {
 		nc = true
 		l = tolower(D.Keys)
 	}
@@ -170,7 +170,7 @@ func (D *DataBunch) LibSVM() string {
 
 	}
 	for i, v := range D.Data {
-		dline := make([]string, l+1)
+		dline := make([]string, 1, l+1)
 		dline[0] = fmt.Sprintf("%3d", D.getithLabel(i))
 		for j, w := range v {
 			s := fmt.Sprintf("%d:%5.4f", j+1, w)

@@ -59,8 +59,15 @@ func UnJSONMultiClass(r *bufio.Reader, opts ...*Options) (*MultiClass, error) {
 	ret.classLabels = jmc.ClassLabels
 	ret.activation = ActivationMap[jmc.ActiName]
 	ret.baseScore = jmc.BaseScore
-	if len(opts) > 0 && opts[0] != nil && jmc.Options != nil {
-		*opts[0] = *jmc.Options.toOptions()
+	var o *Options
+
+	if jmc.Options != nil {
+		o = jmc.Options.toOptions()
+		ret.xgb = o.XGB
+		ret.regression = o.Regression()
+		if len(opts) > 0 && opts[0] != nil {
+			*opts[0] = *jmc.Options.toOptions()
+		}
 	}
 	//I'm not sure this will work!
 	//	s, err = r.ReadString('\n')
@@ -94,13 +101,20 @@ func UnJSONMultiClass(r *bufio.Reader, opts ...*Options) (*MultiClass, error) {
 		if err != nil {
 			return nil, fmt.Errorf("Error reading tree %d round %d, class %d: %v", cont, nround, nclass, err)
 		}
-		class = append(class, jtree.(*Tree))
+		if jtree == nil {
+			class = append(class, nil)
+		} else {
+			class = append(class, jtree.(*Tree))
+		}
+
 		nclass++
 		cont++
 	}
 	if err.Error() != "EOF" {
 		return nil, fmt.Errorf("Error reading of trees lines from file: %v", err)
-
+	}
+	if class != nil {
+		trees = append(trees, class)
 	}
 	ret.b = trees
 	return ret, nil

@@ -54,7 +54,7 @@ func DefaultXOptions() *Options {
 // Returns whether the options consider a regression (as opposed to a classification)
 // if a bool is given, sets the regression flag to that value _before_ returning it.
 func (o *Options) Regression(do ...bool) bool {
-	if len(do) < 0 {
+	if len(do) > 0 {
 		if do[0] {
 			o.Activation = &utils.Identity{}
 		}
@@ -95,7 +95,7 @@ func (o *Options) Equal(O *Options) bool {
 	if O.BaseScore != o.BaseScore {
 		return false
 	}
-	if O.TreeMethod != "exact" {
+	if O.TreeMethod != o.TreeMethod {
 		return false
 	}
 	if O.Loss != o.Loss {
@@ -188,7 +188,7 @@ func (o *Options) Check() error {
 		return n("Lambda %v", o.Lambda)
 	}
 	if o.MinChildWeight < 1 {
-		return n("MinChildWeight %d", o.MinChildWeight)
+		return n("MinChildWeight %3.1f", o.MinChildWeight)
 	}
 	if o.Gamma < 0 {
 		return n("Gamma %v", o.Gamma)

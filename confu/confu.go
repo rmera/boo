@@ -39,11 +39,12 @@ func ReadNameMap(filename string, separator ...string) (map[int]string, error) {
 		return nil, err
 	}
 	defer ffin.Close()
-	fin := bufio.NewReader(ffin)
-	var rerr error
+	fin := bufio.NewScanner(ffin)
+	fin.Split(bufio.ScanLines)
 	ret := make(map[int]string)
-	for s, rerr := fin.ReadString('\n'); rerr == nil; s, rerr = fin.ReadString('\n') {
-		s := strings.Replace(s, "\n", "", -1)
+	var s string
+	for fin.Scan() {
+		s = strings.Replace(fin.Text(), "\n", "", -1)
 		var l []string
 		if sep == " " {
 			l = strings.Fields(s)
@@ -56,6 +57,7 @@ func ReadNameMap(filename string, separator ...string) (map[int]string, error) {
 		}
 		ret[num] = l[1]
 	}
+	rerr := fin.Err()
 	if errors.Is(rerr, io.EOF) {
 		rerr = nil //EOF is not an actual error
 	}
@@ -155,7 +157,7 @@ func (C *Confusions) TopNPerLabel(N int) ([][]int, [][]int) {
 
 	for _, v := range C.Labels {
 		//		fmt.Println("label", v) //////////////////
-		r, rf := C.TopNForLabelM(N, v, true)
+		r, rf := C.TopNForLabelM(N, v)
 		//		fmt.Println("weaita", r, rf) ///////////////////
 		ret = append(ret, r)
 		retf = append(retf, rf)
@@ -167,7 +169,7 @@ func (C *Confusions) TopNPerLabel(N int) ([][]int, [][]int) {
 // when the actual label is M. If M is not a valid label in the dataset,
 // returns nil. It also returns the fraction of instances where label M is predicted to be
 // each of the labels.
-func (C *Confusions) TopNForLabelM(N, M int, docopy ...bool) ([]int, []int) {
+func (C *Confusions) TopNForLabelM(N, M int) ([]int, []int) {
 	C.Matrix()
 	index := slices.Index(C.Labels, M)
 	if index < 0 {
@@ -191,16 +193,14 @@ func (C *Confusions) TopNForLabelM(N, M int, docopy ...bool) ([]int, []int) {
 	//	}
 	slices.Reverse(sorti)
 	slices.Reverse(sortvals)
-	if len(docopy) > 0 && docopy[0] {
-		//	println("copiacu!") //////////////////////
-		cpsorti := make([]int, len(sorti))
-		cpsortvals := make([]int, len(sortvals))
-		copy(cpsortvals, sortvals)
-		copy(cpsorti, sorti)
-		//	fmt.Println("copias", sorti, cpsorti, sortvals, cpsortvals) ///////////
-		sorti = cpsorti
-		sortvals = cpsortvals
-	}
+	//	println("copiacu!") //////////////////////
+	cpsorti := make([]int, len(sorti))
+	cpsortvals := make([]int, len(sortvals))
+	copy(cpsortvals, sortvals)
+	copy(cpsorti, sorti)
+	//	fmt.Println("copias", sorti, cpsorti, sortvals, cpsortvals) ///////////
+	sorti = cpsorti
+	sortvals = cpsortvals
 
 	if N >= len(sorti) {
 		return sorti, sortvals

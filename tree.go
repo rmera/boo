@@ -295,7 +295,7 @@ func (T *Tree) PredictSingle(row []float64) float64 {
 // If given the featurenames, returns the name of the split feature for the node. If not,
 // returns the zero-based index for the split feature.
 func (T *Tree) feature(featurenames []string) string {
-	if featurenames == nil && len(featurenames) <= T.splitFeatureIndex {
+	if featurenames == nil || len(featurenames) <= T.splitFeatureIndex {
 		return fmt.Sprintf("%2d", T.splitFeatureIndex)
 	}
 	return featurenames[T.splitFeatureIndex]
@@ -370,18 +370,15 @@ func (f *Feats) Feats(n int) []int {
 // Adds a feature,gain pair to the f set. This operation
 // is concurrency-safe.
 func (f *Feats) Add(feature int, gain float64) {
+	f.m.Lock()
+	defer f.m.Unlock()
 	index := slices.Index(f.feat, feature)
 	if index >= 0 {
-		f.m.Lock()
 		f.gains[index] += gain
-		f.m.Unlock()
 		return
 	}
-	f.m.Lock()
 	f.feat = append(f.feat, feature)
 	f.gains = append(f.gains, gain)
-	f.m.Unlock()
-	return
 }
 
 // Merges the given feature set into the receiver.
