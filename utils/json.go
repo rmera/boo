@@ -94,14 +94,14 @@ func JSONTree(t JTree, ids ...*idGiver) ([][]byte, uint, error) {
 	var err, errl, errr error
 	ret := t.JNode(ID)
 	var l, r [][]byte
-	if t.Leftf(nil) != nil {
+	if left := t.Leftf(nil); !jtreeIsNil(left) {
 		var leftid uint
-		l, leftid, errl = JSONTree(t.Leftf(nil), id)
+		l, leftid, errl = JSONTree(left, id)
 		ret.Leftid = leftid
 	}
-	if t.Rightf(nil) != nil {
+	if right := t.Rightf(nil); !jtreeIsNil(right) {
 		var rightid uint
-		r, rightid, errr = JSONTree(t.Rightf(nil), id)
+		r, rightid, errr = JSONTree(right, id)
 		ret.Rightid = rightid
 	}
 	retstr, err := json.Marshal(ret)
