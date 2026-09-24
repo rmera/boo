@@ -8,24 +8,11 @@ import (
 	"github.com/rmera/boo/utils"
 )
 
-// Returns D, not a copy, with the Labels permutefeatures in the given index set scrambled. All features in the given
-// set are scrambled randomly but identically. i.e. using the same random permutation for both each time.
-// it also takes 2 slices to be used as scratch (it allocates for them if they are nil) and returns 2 to be
-// used in future calls. The second one contains the labels in the original order
+// Returns a copy of D with the Labels randomly permuted (shuffled).
 func PermuteLabels(D *utils.DataBunch) *utils.DataBunch {
-
 	D2 := D.Copy()
 	nsamples := len(D2.Labels)
-	// if used == nil {
 	used := make([]int, 0, nsamples)
-	//	} else {
-	//		used = used[:0]
-	//
-	//	}
-
-	// if len(tmp) != len(D2.Labels) {
-	//	tmp := make([]int, nsamples)
-	//	}
 
 	NewIndex := func() int {
 		for {
@@ -40,15 +27,8 @@ func PermuteLabels(D *utils.DataBunch) *utils.DataBunch {
 	for _, v := range D.Labels {
 		newindex := NewIndex()
 		D2.Labels[newindex] = v
-		//		fmt.Println("old new index", i, newindex) ////////////////
 	}
-	//	rt := D2.Labels
-	//	fmt.Println(D.Labels) ///////////////
-	//	D2.Labels = tmp
-	//	fmt.Println(D2.Labels, "the new ones") //////////////////
-
-	//	tmp = rt            //now tmp has the old values, so it can be used as tmp for the next call to the function
-	return D2 // used, tmp
+	return D2
 }
 
 // A simple non-parametric function for p-value. The fraction of nulls with
@@ -99,9 +79,8 @@ func PermutationImportance(xgb *boo.MultiClass, D *utils.DataBunch, features *ID
 	}
 
 	nulls := make([]float64, 0, o.LabelPerms)
-	ND := D.Copy()
 	for i := 0; i < o.LabelPerms; i++ {
-		ND = PermuteLabels(D) // nil, nil)
+		ND := PermuteLabels(D)
 		ns, err := VariableImportance(xgb, ND, features)
 		if err != nil {
 			return -1, err

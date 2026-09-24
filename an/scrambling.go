@@ -31,7 +31,6 @@ func PermuteFeatures(D *utils.DataBunch, features *IDOrKey) (*utils.DataBunch, e
 			used = append(used, a)
 			return a
 		}
-		return -1
 	}
 	for _, v := range D.Data {
 		newindex := NewIndex()
@@ -91,9 +90,7 @@ func (I *IDOrKey) Get(D *utils.DataBunch, nocaps ...bool) ([]int, error) {
 
 func VariableImportance(xgb *boo.MultiClass, D *utils.DataBunch, feature *IDOrKey) ([3]float64, error) {
 	IniAcc := xgb.Accuracy(D)
-	scdata := D
-	var err error
-	scdata, err = PermuteFeatures(scdata, feature)
+	scdata, err := PermuteFeatures(D, feature)
 	if err != nil {
 		return [3]float64{0, 0, 0}, fmt.Errorf("VariableImportance: Couldn't do permutation: %w", err)
 	}

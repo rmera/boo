@@ -31,8 +31,9 @@ func col(f [][]float64, i int, dst ...[]float64) []float64 {
 	var d []float64
 	if len(dst) > 0 && len(dst[0]) == len(f) {
 		d = dst[0]
+	} else {
+		d = make([]float64, len(f))
 	}
-	d = make([]float64, len(f))
 	for j, v := range f {
 		d[j] = v[i]
 	}
@@ -245,6 +246,5 @@ func StabilityOnDataVar(D *utils.DataBunch, O *boo.Options, NBoot, Nfeat int, gr
 
 		fvecs = append(fvecs, featrow)
 	}
-	fmt.Println(fvecs) ///////////////////
 	return StabilityAndVariance(fvecs)
 }
