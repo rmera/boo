@@ -2,6 +2,7 @@ package an
 
 import (
 	"math"
+	"math/rand/v2"
 	"slices"
 	"testing"
 
@@ -57,23 +58,68 @@ func TestMakeGrouperFuncEmptyInput(t *testing.T) {
 	}
 }
 
-func TestNonparamOneTail(t *testing.T) {
+func TestNonparamNoTies(t *testing.T) {
 	nulls := []float64{0.1, 0.2, 0.3, 0.4, 0.5}
-	// 0.4 and 0.5 are the only nulls more extreme (greater) than 0.35
-	p := nonparam(0.35, nulls)
+	// 0.4 and 0.5 are the only nulls greater than 0.35. With no ties, both
+	// modes must agree.
 	want := 2.0 / 5.0
-	if !floatsClose(p, want, 1e-12) {
+	if p := nonparam(0.35, nulls); !floatsClose(p, want, 1e-12) {
 		t.Errorf("nonparam: got %v, want %v", p, want)
+	}
+	if p := nonparam(0.35, nulls, true); !floatsClose(p, want, 1e-12) {
+		t.Errorf("nonparam strict: got %v, want %v", p, want)
 	}
 }
 
-func TestNonparamTwoTails(t *testing.T) {
-	nulls := []float64{0.1, 0.2, 0.3, 0.4, 0.5}
-	p := nonparam(0.35, nulls, true)
-	// g=2 nulls > score, l=3 nulls <= score; 2*min(g,l)/len(nulls)
-	want := 2 * 2.0 / 5.0
-	if !floatsClose(p, want, 1e-12) {
-		t.Errorf("nonparam two tails: got %v, want %v", p, want)
+func TestNonparamTies(t *testing.T) {
+	nulls := []float64{0.1, 0.2, 0.3, 0.3, 0.5}
+	// Default: nulls at least as extreme as 0.3 are 0.3, 0.3 and 0.5.
+	if p, want := nonparam(0.3, nulls), 3.0/5.0; !floatsClose(p, want, 1e-12) {
+		t.Errorf("nonparam: got %v, want %v", p, want)
+	}
+	// Strict: only 0.5 is more extreme than 0.3.
+	if p, want := nonparam(0.3, nulls, true), 1.0/5.0; !floatsClose(p, want, 1e-12) {
+		t.Errorf("nonparam strict: got %v, want %v", p, want)
+	}
+	// An explicit false must behave like the default.
+	if p, want := nonparam(0.3, nulls, false), 3.0/5.0; !floatsClose(p, want, 1e-12) {
+		t.Errorf("nonparam with false: got %v, want %v", p, want)
+	}
+}
+
+func TestNonparamDoesNotModifyNulls(t *testing.T) {
+	nulls := []float64{0.5, 0.1, 0.4, 0.2}
+	orig := slices.Clone(nulls)
+	nonparam(0.3, nulls)
+	if !slices.Equal(nulls, orig) {
+		t.Errorf("nonparam modified its input: got %v, want %v", nulls, orig)
+	}
+}
+
+// Compares nonparam against the non-parametric branch of the reference R
+// implementation by Altmann et al. (https://github.com/andrealtmann/PIMP, PIMP.R):
+//
+//	pv <- sum(rnd[,i]>=imp[i])/length(rnd[,i])
+//
+// The expected values were obtained by evaluating that expression on each case.
+func TestNonparamMatchesReference(t *testing.T) {
+	cases := []struct {
+		imp   float64
+		nulls []float64
+		want  float64
+	}{
+		{0.35, []float64{0.1, 0.2, 0.3, 0.4, 0.5}, 0.4},
+		{0.3, []float64{0.1, 0.2, 0.3, 0.3, 0.5}, 0.6},
+		// Typical for an uninformative feature: many importances exactly 0.
+		{0.0, []float64{0.0, 0.0, -0.01, 0.02, 0.0, 0.0, -0.005, 0.0}, 0.75},
+		{0.9, []float64{0.1, 0.2, 0.3}, 0.0},
+		{-0.5, []float64{0.1, 0.2, 0.3}, 1.0},
+		{0.05, []float64{0.05, 0.05, 0.05, 0.05}, 1.0},
+	}
+	for _, c := range cases {
+		if p := nonparam(c.imp, c.nulls); !floatsClose(p, c.want, 1e-12) {
+			t.Errorf("nonparam(%v, %v): got %v, reference gives %v", c.imp, c.nulls, p, c.want)
+		}
 	}
 }
 
@@ -233,15 +279,29 @@ func TestVariableImportanceUnknownKeyErrors(t *testing.T) {
 }
 
 func TestPermutationImportance(t *testing.T) {
-	xgb, D := trainTestModel(t)
+	_, D := trainTestModel(t)
 	o := DefaultPermImportanceOptions()
+	o.BooOpts = boo.DefaultXOptions()
+	o.BooOpts.Rounds = 5
 	o.LabelPerms = 20
-	p, err := PermutationImportance(xgb, D, &IDOrKey{Keys: []string{"f0"}}, o)
+	vi, p, err := PermutationImportance(D, D, &IDOrKey{Keys: []string{"f0"}}, o)
 	if err != nil {
 		t.Fatalf("PermutationImportance: unexpected error: %v", err)
 	}
+	if math.IsNaN(vi) || vi < -100 || vi > 100 {
+		t.Errorf("PermutationImportance: importance (a difference of accuracy percentages) out of range [-100,100]: %v", vi)
+	}
 	if p < 0 || p > 1 {
 		t.Errorf("PermutationImportance: p-value out of range [0,1]: %v", p)
+	}
+}
+
+func TestPermutationImportanceNoBooOptions(t *testing.T) {
+	_, D := trainTestModel(t)
+	o := DefaultPermImportanceOptions()
+	_, _, err := PermutationImportance(D, D, &IDOrKey{Keys: []string{"f0"}}, o)
+	if err == nil {
+		t.Errorf("PermutationImportance: expected an error when BooOpts is nil, got nil")
 	}
 }
 
@@ -255,5 +315,54 @@ func TestStabilityOnDataVar(t *testing.T) {
 	}
 	if stab < -1 || stab > 1 {
 		t.Errorf("StabilityOnDataVar: stability out of expected range [-1,1]: %v", stab)
+	}
+}
+
+// A toy binary problem: f0 is strongly informative, f1 weakly informative,
+// f2 and f3 are pure noise. The generator is seeded, so the data is fixed.
+func pimpToyData(n int, seed uint64) *utils.DataBunch {
+	r := rand.New(rand.NewPCG(seed, seed+1))
+	D := &utils.DataBunch{Keys: []string{"f0", "f1", "f2", "f3"}}
+	for i := 0; i < n; i++ {
+		x := []float64{r.Float64(), r.Float64(), r.Float64(), r.Float64()}
+		s := x[0] + 0.3*x[1] + 0.3*r.NormFloat64()
+		l := 0
+		if s > 0.65 {
+			l = 1
+		}
+		D.Data = append(D.Data, x)
+		D.Labels = append(D.Labels, l)
+	}
+	return D
+}
+
+// On this data (train seed 1, test seed 2), the reference PIMP pipeline (random forest,
+// accuracy-drop VI on the test set, 50 label permutations, non-parametric p-values as in
+// PIMP.R) gave VI=24.3, p=0.00 for f0 and VI=-0.85, p=0.58 for f3. The permutations make
+// the results random, so only the clear-cut conclusions are checked.
+func TestPermutationImportanceToy(t *testing.T) {
+	if testing.Short() {
+		t.Skip("slow: trains many models")
+	}
+	train := pimpToyData(200, 1)
+	test := pimpToyData(200, 2)
+	o := DefaultPermImportanceOptions()
+	o.BooOpts = boo.DefaultXOptions()
+	o.BooOpts.Rounds = 10
+	o.LabelPerms = 20
+
+	vi0, p0, err := PermutationImportance(train, test, &IDOrKey{Keys: []string{"f0"}}, o)
+	if err != nil {
+		t.Fatalf("PermutationImportance: unexpected error: %v", err)
+	}
+	if p0 >= 0.05 {
+		t.Errorf("PermutationImportance: informative feature f0 should be significant, got VI=%v p=%v", vi0, p0)
+	}
+	vi3, p3, err := PermutationImportance(train, test, &IDOrKey{Keys: []string{"f3"}}, o)
+	if err != nil {
+		t.Fatalf("PermutationImportance: unexpected error: %v", err)
+	}
+	if vi3 >= vi0 {
+		t.Errorf("PermutationImportance: noise feature f3 (VI=%v, p=%v) should be less important than f0 (VI=%v)", vi3, p3, vi0)
 	}
 }

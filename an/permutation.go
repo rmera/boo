@@ -1,54 +1,55 @@
 package an
 
 import (
+	"fmt"
+	"math"
 	"math/rand/v2"
-	"slices"
 
 	"github.com/rmera/boo"
 	"github.com/rmera/boo/utils"
 )
 
 // Returns a copy of D with the Labels randomly permuted (shuffled).
+// D.Labels must be filled (len>0). If FloatLabels is filled, its lenght must
+// match that of D.Labels
 func PermuteLabels(D *utils.DataBunch) *utils.DataBunch {
 	D2 := D.Copy()
-	nsamples := len(D2.Labels)
-	used := make([]int, 0, nsamples)
-
-	NewIndex := func() int {
-		for {
-			a := rand.IntN(nsamples)
-			if slices.Contains(used, a) {
-				continue
-			}
-			used = append(used, a)
-			return a
+	perm := rand.Perm(len(D.Data))
+	if len(D.Labels) == len(perm) {
+		for i, v := range D.Labels {
+			D2.Labels[perm[i]] = v
 		}
 	}
-	for _, v := range D.Labels {
-		newindex := NewIndex()
-		D2.Labels[newindex] = v
+	if len(D.FloatLabels) == len(perm) {
+		for i, v := range D.FloatLabels {
+			D2.FloatLabels[perm[i]] = v
+		}
 	}
 	return D2
 }
 
 // A simple non-parametric function for p-value. The fraction of nulls with
-// values more extreme than score.
-func nonparam(score float64, nulls []float64, twotails ...bool) float64 {
-	slices.Sort(nulls)
+// values at least as (default) or more extreme than score (if at least one moreextrem given and true).
+func nonparam(score float64, nulls []float64, moreextreme ...bool) float64 {
+	//	slices.Sort(nulls)
 	var l, g int
 	g = len(nulls)
+
+	comp := func(score, v float64) bool {
+		return score > v
+	}
+	if len(moreextreme) > 0 && moreextreme[0] {
+		comp = func(score, v float64) bool {
+			return score >= v
+		}
+	}
 	for _, v := range nulls {
-		if score >= v {
+		if comp(score, v) {
 			g--
 			l++
-		} else {
-			break
 		}
 	}
 	p := float64(g)
-	if len(twotails) > 0 && twotails[0] {
-		p = 2 * float64(min(g, l))
-	}
 	return p / float64(len(nulls))
 }
 
@@ -56,71 +57,65 @@ func nonparam(score float64, nulls []float64, twotails ...bool) float64 {
 // If you use this function, please cite:
 // Altmann, André, Laura Toloşi, Oliver Sander, and Thomas Lengauer. "Permutation importance:
 // a corrected feature importance measure." Bioinformatics 26, no. 10 (2010): 1340-1347.
-// https://doi.org/10.1093/bioinformatics/btq13
-func PermutationImportance(xgb *boo.MultiClass, D *utils.DataBunch, features *IDOrKey, opts ...*PermImportanceOptions) (float64, error) {
-	//I'm so not calling this 'pimp'
-	//	nperms := 1000
-	//	if len(npermut) > 0 && npermut[0] > 0 {
-	//		nperms = npermut[0]
-	//	}
-	var o *PermImportanceOptions
-	if len(opts) > 0 {
-		o = opts[0]
-	} else {
-		o = DefaultPermImportanceOptions()
-	}
+// https://doi.org/10.1093/bioinformatics/btq13..
 
-	if _, ok := o.Score(); !ok {
-		t, err := VariableImportance(xgb, D, features)
+func PermutationImportance(training, test *utils.DataBunch, features *IDOrKey, o *PermImportanceOptions) (float64, float64, error) {
+	//I'm so not calling this function 'pimp'
+
+	if o.BooOpts == nil {
+		return -1, -1, fmt.Errorf("PermutationImportance: no boo.Options given; supply the options used to train the model")
+	}
+	RefSample := 10
+	refscore := 0.0
+	for i := 0; i < RefSample; i++ {
+
+		xgb := boo.NewMultiClass(training, o.BooOpts)
+		rs, err := o.Score(test, xgb, features)
 		if err != nil {
-			return -1, err
+			return -1, -1, fmt.Errorf("PermutationImportance: %w", err)
 		}
-		o.Score(t[0])
+		refscore += rs
+	}
+	refscore /= float64(RefSample)
+
+	const epsilon float64 = 0.001
+	if math.Abs(refscore) <= epsilon {
+		return 0.0, -1.0, nil
 	}
 
 	nulls := make([]float64, 0, o.LabelPerms)
 	for i := 0; i < o.LabelPerms; i++ {
-		ND := PermuteLabels(D)
-		ns, err := VariableImportance(xgb, ND, features)
+		ND := PermuteLabels(training)
+		model := boo.NewMultiClass(ND, o.BooOpts)
+		ns, err := o.Score(test, model, features)
 		if err != nil {
-			return -1, err
+			return -1, -1, err
 		}
-		nulls = append(nulls, ns[0])
+		nulls = append(nulls, ns)
 	}
-
-	//NOTE: Add parametric versions (the reference has normal, log-normal and gamma, in addition to the non-parametric method)
-	sc, _ := o.Score()
-	return nonparam(sc, nulls, o.TwoTails), nil
+	return refscore, nonparam(refscore, nulls), nil
 }
 
 type PermImportanceOptions struct {
 	LabelPerms int
-	//	FeatPerms  int
-	score     float64 //I need that this can be nil
-	havescore bool
-	TwoTails  bool
-}
-
-// returns the score plus true if a score has been set and false if not.
-// if  given a number it will return the existing information and then set the score
-// to the value given.
-func (P *PermImportanceOptions) Score(f ...float64) (float64, bool) {
-	if len(f) != 0 {
-		tr := P.score
-		trb := P.havescore
-		P.score = f[0]
-		P.havescore = true
-		return tr, trb
-	}
-	return P.score, P.havescore
-
+	BooOpts    *boo.Options
+	Score      func(*utils.DataBunch, *boo.MultiClass, *IDOrKey) (float64, error) //I need that this can be nil
 }
 
 func DefaultPermImportanceOptions() *PermImportanceOptions {
 	r := new(PermImportanceOptions)
-	r.LabelPerms = 10000
-	//	r.FeatPerms = 100
-	r.TwoTails = false
+	r.LabelPerms = 100
+	r.Score = func(test *utils.DataBunch, m *boo.MultiClass, feat *IDOrKey) (float64, error) {
+		FeatPerms := 100
+		score := 0.0
+		for i := 0; i < FeatPerms; i++ {
+			res, err := VariableImportance(m, test, feat)
+			if err != nil {
+				return -1, fmt.Errorf("PermutationImportance: Score function failed: %w", err)
+			}
+			score += res[0]
+		}
+		return score / float64(FeatPerms), nil
+	}
 	return r
-
 }

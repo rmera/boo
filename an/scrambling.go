@@ -20,22 +20,10 @@ func PermuteFeatures(D *utils.DataBunch, features *IDOrKey) (*utils.DataBunch, e
 	}
 	ret := D.Copy()
 	samples := len(D.Data)
-
-	used := make([]int, 0, 10)
-	NewIndex := func() int {
-		for {
-			a := rand.IntN(samples)
-			if slices.Contains(used, a) {
-				continue
-			}
-			used = append(used, a)
-			return a
-		}
-	}
-	for _, v := range D.Data {
-		newindex := NewIndex()
+	newindexes := rand.Perm(samples)
+	for i, v := range D.Data {
 		for _, feat := range feats {
-			ret.Data[newindex][feat] = v[feat]
+			ret.Data[newindexes[i]][feat] = v[feat]
 		}
 	}
 	return ret, nil
@@ -94,13 +82,6 @@ func VariableImportance(xgb *boo.MultiClass, D *utils.DataBunch, feature *IDOrKe
 	if err != nil {
 		return [3]float64{0, 0, 0}, fmt.Errorf("VariableImportance: Couldn't do permutation: %w", err)
 	}
-
-	/*
-		fmt.Println("ori", D)      ///////////////////////////////////
-		fmt.Println("mod", scdata) /////////////////
-		fg, _ := feature.Get(D)    /////////////////////////
-		fmt.Println("feature", fg) //////////////////
-	*/
 	ScAcc := xgb.Accuracy(scdata)
 	return [3]float64{IniAcc - ScAcc, IniAcc, ScAcc}, nil
 }
