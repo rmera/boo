@@ -13,6 +13,28 @@ import (
 	"gonum.org/v1/gonum/stat"
 )
 
+// Does repeated crossvalidations over nperm permutations of the labels, i.e. to estimate the baseline/random accuracy.
+// Does _not_ run concurrently. It modifies opts in a way that is not concurrent-safe.
+func NullRepeatedCrossValidation(D *utils.DataBunch, nfold, nreps, nperm int, opts *Options) (float64, []float64, error) {
+	conc := opts.Conc
+	opts.Conc = false
+	defer func() { opts.Conc = conc }()
+	if nreps <= 0 || nperm <= 0 {
+		return -1, nil, fmt.Errorf("NullRepeatedCrossValidation: At least one invalid (<=0) nperm, and/or nreps given")
+	}
+
+	av := make([]float64, 0, nperm)
+	for i := 0; i < nperm; i++ {
+		D2 := utils.PermuteLabels(D)
+		accs, err := RepeatedCrossvalidation(D2, nfold, nreps, opts)
+		if err != nil {
+			return -1, nil, err
+		}
+		av = append(av, stat.Mean(accs, nil))
+	}
+	return stat.Mean(av, nil), av, nil
+}
+
 func MonteCarloCrossValidation(D *utils.DataBunch, nreps int, trainingfraction float64, O *boo.Options) ([]float64, error) {
 	var err error
 	ret := make([]float64, 0, nreps)
